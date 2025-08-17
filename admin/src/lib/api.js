@@ -1,6 +1,36 @@
 // API Base URL - Update to your deployed backend URL
 const API_BASE_URL = 'http://localhost:8000/api';
 
+// Auth utilities for admin
+export const adminAuthUtils = {
+  setToken: (token) => {
+    localStorage.setItem('admin_token', token);
+  },
+
+  getToken: () => {
+    return localStorage.getItem('admin_token');
+  },
+
+  removeToken: () => {
+    localStorage.removeItem('admin_token');
+  },
+
+  isAuthenticated: () => {
+    const token = localStorage.getItem('admin_token');
+    if (!token) return false;
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      return payload.isAdmin && payload.exp * 1000 > Date.now();
+    } catch {
+      return false;
+    }
+  },
+
+  clearAuth: () => {
+    localStorage.removeItem('admin_token');
+  },
+};
+
 // Helper function to handle API responses
 const handleResponse = async (response) => {
   if (!response.ok) {
@@ -28,6 +58,16 @@ const apiRequest = async (endpoint, options = {}) => {
     headers: { 'Content-Type': 'application/json' },
     ...options,
   };
+  
+  // Add auth token if available
+  const token = adminAuthUtils.getToken();
+  if (token) {
+    config.headers = {
+      ...config.headers,
+      Authorization: `Bearer ${token}`,
+    };
+  }
+  
   try {
     const response = await fetch(url, config);
     return handleResponse(response);
@@ -43,14 +83,49 @@ const apiRequest = async (endpoint, options = {}) => {
 export const adminAPI = {
   // Admin login
   login: async (credentials) => {
-    return apiRequest('/admins/login', {
+    const response = await apiRequest('/admins/login', {
       method: 'POST',
       body: JSON.stringify(credentials),
     });
+    
+    // If login is successful, store the token
+    if (response.success && response.data?.token) {
+      adminAuthUtils.setToken(response.data.token);
+    }
+    
+    return response;
   },
-  // You can add signup or other admin APIs here as needed
+
+  // Admin logout
+  logout: () => {
+    adminAuthUtils.clearAuth();
+  },
+
+  // Check if admin is authenticated
+  isAuthenticated: () => {
+    return adminAuthUtils.isAuthenticated();
+  },
+
+  // Get current token
+  getToken: () => {
+    return adminAuthUtils.getToken();
+  },
+
+  // Get all orders
+  getOrders: async () => {
+    return apiRequest('/orders/admin/all');
+  },
+
+  // Update order status
+  updateOrderStatus: async (orderId, updateData) => {
+    return apiRequest(`/orders/admin/${orderId}/status`, {
+      method: 'PUT',
+      body: JSON.stringify(updateData),
+    });
+  },
 };
 
 export default {
   admin: adminAPI,
+  adminAuth: adminAuthUtils,
 }; 

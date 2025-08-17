@@ -1,11 +1,11 @@
 const mongoose = require("mongoose");
 const bcrypt = require("bcrypt");
-const jwt = require("jsonwebtoken");
 const Admin = require("../models/Admin");
+const { generateAdminToken } = require("../utils/jwtUtils");
+
 require("dotenv").config();
 
 const MONGO_URI = process.env.MONGO_URI ||  "mongodb://localhost:27017/nevyra";
-const JWT_SECRET = process.env.JWT_SECRET || "secretToken";
 
 async function seedAdmin() {
   await mongoose.connect(MONGO_URI);
@@ -25,11 +25,10 @@ async function seedAdmin() {
   }
 
   // Generate JWT token
-  const token = jwt.sign(
-    { id: admin._id, email: admin.email, isAdmin: true },
-    JWT_SECRET,
-    { expiresIn: "7d" }
-  );
+  const token = generateAdminToken({
+    id: admin._id,
+    email: admin.email
+  });
   console.log("Admin JWT token:", token);
   mongoose.disconnect();
 }

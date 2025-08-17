@@ -11,12 +11,14 @@ const app = express();
 // Configure CORS to allow requests from frontend
 const corsOptions = {
   origin: [
+    'http://localhost:8080',
+    'http://localhost:8081',
     'https://nevyraadmin.onrender.com',
     'https://nevyrafron.onrender.com',
     'https://nevyrafron.onrender.com',
     'https://nevyrafrontend.onrender.com',
     'https://nevyra.onrender.com',
-    'http://localhost:8080', // Your frontend development server
+     // Your frontend development server
     'http://localhost:3000',
     'http://localhost:5173',
     'https://nevyraback.onrender.com', // Your new backend URL
@@ -27,7 +29,7 @@ const corsOptions = {
     'https://nevyra.vercel.app', // Alternative deployed frontend URL
   ],
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
 };
 

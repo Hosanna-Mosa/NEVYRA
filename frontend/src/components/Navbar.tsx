@@ -8,8 +8,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useState, useEffect, useRef } from "react";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import {
   HoverCard,
   HoverCardContent,
@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/hover-card";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useAuth } from "@/hooks/useAuth";
+import { useCart } from "@/hooks/useCart";
 
 const categories = [
   {
@@ -108,11 +109,19 @@ const categories = [
 ] ;
 
 const Navbar = () => {
+  const { user, logout, isAuthenticated } = useAuth();
+  const { getCartItemCount } = useCart();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
-  const navigate = useNavigate();
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showSearchSuggestions, setShowSearchSuggestions] = useState(false);
+  const searchRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
-  const { user, isAuthenticated, logout } = useAuth();
+
   const toggleCategory = (categoryName: string) => {
     setExpandedCategory(expandedCategory === categoryName ? null : categoryName);
   };
@@ -251,7 +260,7 @@ const Navbar = () => {
                 <ShoppingCart className="h-4 w-4" />
                 <span className="text-sm hidden md:inline">Cart</span>
                 <span className="absolute -top-1 -right-1 bg-warning text-warning-foreground text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                  0
+                  {getCartItemCount()}
                 </span>
               </Button>
             </Link>

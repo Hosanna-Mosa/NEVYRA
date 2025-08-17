@@ -81,6 +81,134 @@ export interface ProductResponse {
   data: Product | null;
 }
 
+export interface CartItem {
+  _id: string;
+  userId: string;
+  productId: Product;
+  quantity: number;
+  size?: string;
+  color?: string;
+  price: number;
+  originalPrice?: number;
+  selectedAttributes: Record<string, any>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CartSummary {
+  items: CartItem[];
+  summary: {
+    subtotal: number;
+    totalItems: number;
+    totalSavings: number;
+    shippingFee: number;
+    finalTotal: number;
+  };
+}
+
+export interface AddToCartRequest {
+  productId: string;
+  quantity: number;
+  size?: string;
+  color?: string;
+  selectedAttributes?: Record<string, any>;
+}
+
+export interface UpdateCartItemRequest {
+  quantity?: number;
+  size?: string;
+  color?: string;
+  selectedAttributes?: Record<string, any>;
+}
+
+export interface OrderItem {
+  _id: string;
+  orderId: string;
+  productId: Product;
+  quantity: number;
+  price: number;
+  originalPrice?: number;
+  size?: string;
+  color?: string;
+  selectedAttributes: Record<string, any>;
+  subtotal: number;
+  discountAmount: number;
+  taxAmount: number;
+  totalAmount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Order {
+  _id: string;
+  userId: string;
+  orderNumber: string;
+  items: OrderItem[];
+  totalAmount: number;
+  subtotal: number;
+  shippingFee: number;
+  taxAmount: number;
+  discountAmount: number;
+  status: string;
+  paymentMethod: string;
+  paymentStatus: string;
+  shippingAddress: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+    address: string;
+    city: string;
+    zipCode: string;
+    state: string;
+    country: string;
+  };
+  billingAddress: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+    address: string;
+    city: string;
+    zipCode: string;
+    state: string;
+    country: string;
+  };
+  estimatedDelivery: string;
+  actualDelivery?: string;
+  trackingNumber?: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateOrderRequest {
+  paymentMethod: string;
+  shippingAddress: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+    address: string;
+    city: string;
+    zipCode: string;
+    state: string;
+    country: string;
+  };
+  billingAddress: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+    address: string;
+    city: string;
+    zipCode: string;
+    state: string;
+    country: string;
+  };
+  notes?: string;
+}
+
 class ApiService {
   private baseURL: string;
 
@@ -192,6 +320,7 @@ class ApiService {
     address: string;
     city: string;
     zipCode: string;
+    state: string;
   }): Promise<{ success: boolean; message: string; data: any[] }> {
     return this.request<{ success: boolean; message: string; data: any[] }>('/auth/addresses', {
       method: 'POST',
@@ -207,6 +336,7 @@ class ApiService {
     address: string;
     city: string;
     zipCode: string;
+    state: string;
   }): Promise<{ success: boolean; message: string; data: any[] }> {
     return this.request<{ success: boolean; message: string; data: any[] }>(`/auth/addresses/${index}`, {
       method: 'PATCH',
@@ -251,6 +381,79 @@ class ApiService {
   async deleteProduct(id: string): Promise<{ success: boolean; message: string }> {
     return this.request<{ success: boolean; message: string }>(`/products/${id}`, {
       method: 'DELETE',
+    });
+  }
+
+  // Cart management methods
+  async getCart(): Promise<{ success: boolean; message: string; data: CartItem[] }> {
+    return this.request<{ success: boolean; message: string; data: CartItem[] }>('/cart');
+  }
+
+  async getCartSummary(): Promise<{ success: boolean; message: string; data: CartSummary }> {
+    return this.request<{ success: boolean; message: string; data: CartSummary }>('/cart/summary');
+  }
+
+  async addToCart(cartData: AddToCartRequest): Promise<{ success: boolean; message: string; data: CartItem }> {
+    return this.request<{ success: boolean; message: string; data: CartItem }>('/cart', {
+      method: 'POST',
+      body: JSON.stringify(cartData),
+    });
+  }
+
+  async updateCartItem(itemId: string, updateData: UpdateCartItemRequest): Promise<{ success: boolean; message: string; data: CartItem }> {
+    return this.request<{ success: boolean; message: string; data: CartItem }>(`/cart/${itemId}`, {
+      method: 'PUT',
+      body: JSON.stringify(updateData),
+    });
+  }
+
+  async removeFromCart(itemId: string): Promise<{ success: boolean; message: string }> {
+    return this.request<{ success: boolean; message: string }>(`/cart/${itemId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async clearCart(): Promise<{ success: boolean; message: string }> {
+    return this.request<{ success: boolean; message: string }>('/cart', {
+      method: 'DELETE',
+    });
+  }
+
+  // Order management methods
+  async createOrder(orderData: CreateOrderRequest): Promise<{ success: boolean; message: string; data: Order }> {
+    return this.request<{ success: boolean; message: string; data: Order }>('/orders', {
+      method: 'POST',
+      body: JSON.stringify(orderData),
+    });
+  }
+
+  async getUserOrders(): Promise<{ success: boolean; message: string; data: Order[] }> {
+    return this.request<{ success: boolean; message: string; data: Order[] }>('/orders');
+  }
+
+  async getOrderById(orderId: string): Promise<{ success: boolean; message: string; data: Order }> {
+    return this.request<{ success: boolean; message: string; data: Order }>(`/orders/${orderId}`);
+  }
+
+  async getOrderByNumber(orderNumber: string): Promise<{ success: boolean; message: string; data: Order }> {
+    return this.request<{ success: boolean; message: string; data: Order }>(`/orders/number/${orderNumber}`);
+  }
+
+  async cancelOrder(orderId: string): Promise<{ success: boolean; message: string }> {
+    return this.request<{ success: boolean; message: string }>(`/orders/${orderId}/cancel`, {
+      method: 'PUT',
+    });
+  }
+
+  // Admin order management methods
+  async getAllOrders(): Promise<{ success: boolean; message: string; data: Order[] }> {
+    return this.request<{ success: boolean; message: string; data: Order[] }>('/orders/admin/all');
+  }
+
+  async updateOrderStatus(orderId: string, updateData: { status: string; trackingNumber?: string; notes?: string }): Promise<{ success: boolean; message: string; data: Order }> {
+    return this.request<{ success: boolean; message: string; data: Order }>(`/orders/admin/${orderId}/status`, {
+      method: 'PUT',
+      body: JSON.stringify(updateData),
     });
   }
 

@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
+import { CartProvider } from "@/hooks/useCart";
 import RequireAuth from "@/components/RequireAuth";
 import { useScrollToTop } from "./hooks/use-scroll-to-top";
 import Index from "./pages/Index";
@@ -32,16 +33,16 @@ const AppContent = () => {
       <Route path="/" element={<Index />} />
       <Route path="/category/:categoryName" element={<ProductListing />} />
       <Route path="/product/:productId" element={<ProductDetail />} />
-      <Route path="/cart" element={<Cart />} />
-      <Route path="/checkout" element={<Checkout />} />
+      <Route path="/cart" element={<RequireAuth><Cart /></RequireAuth>} />
+      <Route path="/checkout" element={<RequireAuth><Checkout /></RequireAuth>} />
       <Route path="/auth" element={<Auth />} />
-      <Route path="/profile" element={<Profile />} />
-      <Route path="/orders" element={<Orders />} />
-      <Route path="/order/:orderId" element={<OrderDetails />} />
-      <Route path="/admin" element={<AdminDashboard />} />
+      <Route path="/profile" element={<RequireAuth><Profile /></RequireAuth>} />
+      <Route path="/orders" element={<RequireAuth><Orders /></RequireAuth>} />
+      <Route path="/order/:orderId" element={<RequireAuth><OrderDetails /></RequireAuth>} />
+      <Route path="/admin" element={<RequireAuth requireAdmin><AdminDashboard /></RequireAuth>} />
       <Route path="/search-suggestions" element={<SearchSuggestions />} />
       <Route path="/search" element={<SearchResults />} />
-      <Route path="/wishlist" element={<Wishlist />} />
+      <Route path="/wishlist" element={<RequireAuth><Wishlist /></RequireAuth>} />
       <Route path="/bestseller" element={<BestSeller />} />
       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
       <Route path="*" element={<NotFound />} />
@@ -51,31 +52,17 @@ const AppContent = () => {
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-
     <AuthProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-                  <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/category/:categoryName" element={<ProductListing />} />
-          <Route path="/product/:productId" element={<ProductDetail />} />
-          <Route path="/cart" element={<RequireAuth><Cart /></RequireAuth>} />
-          <Route path="/checkout" element={<RequireAuth><Checkout /></RequireAuth>} />
-          <Route path="/auth" element={<Auth />} />
-          <Route path="/profile" element={<RequireAuth><Profile /></RequireAuth>} />
-          <Route path="/admin" element={<RequireAuth requireAdmin><AdminDashboard /></RequireAuth>} />
-          <Route path="/search-suggestions" element={<SearchSuggestions />} />
-          <Route path="/search" element={<SearchResults />} />
-          <Route path="/wishlist" element={<RequireAuth><Wishlist /></RequireAuth>} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
+      <CartProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <AppContent />
+          </BrowserRouter>
+        </TooltipProvider>
+      </CartProvider>
     </AuthProvider>
-
   </QueryClientProvider>
 );
 

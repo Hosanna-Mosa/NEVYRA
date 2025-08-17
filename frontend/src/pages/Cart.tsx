@@ -5,86 +5,69 @@ import Footer from "@/components/Footer";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Minus, Trash2, ShoppingBag, Truck, Shield } from "lucide-react";
-import phoneProduct from "@/assets/phone-product.jpg";
-import shoesProduct from "@/assets/shoes-product.jpg";
-import laptopProduct from "@/assets/laptop-product.jpg";
-
-interface CartItem {
-  id: number;
-  name: string;
-  image: string;
-  price: number;
-  originalPrice: number;
-  quantity: number;
-  size?: string;
-  color?: string;
-}
-
-const initialCartItems: CartItem[] = [
-  {
-    id: 1,
-    name: "Latest Smartphone Pro Max",
-    image: phoneProduct,
-    price: 29999,
-    originalPrice: 35999,
-    quantity: 1,
-    color: "Space Black",
-  },
-  {
-    id: 2,
-    name: "Premium Running Shoes",
-    image: shoesProduct,
-    price: 2999,
-    originalPrice: 4999,
-    quantity: 2,
-    size: "UK 8",
-    color: "White",
-  },
-  {
-    id: 3,
-    name: "Gaming Laptop Ultra",
-    image: laptopProduct,
-    price: 69999,
-    originalPrice: 89999,
-    quantity: 1,
-    color: "Silver",
-  },
-];
+import { Plus, Minus, Trash2, ShoppingBag, Truck, Shield, Loader2 } from "lucide-react";
+import { useCart } from "@/hooks/useCart";
+import { CartItem } from "@/lib/api";
 
 const Cart = () => {
-  const [cartItems, setCartItems] = useState<CartItem[]>(initialCartItems);
+  const { 
+    cartItems, 
+    cartSummary, 
+    isLoading, 
+    updateCartItem, 
+    removeFromCart, 
+    clearCart 
+  } = useCart();
   const [promoCode, setPromoCode] = useState("");
+  const [updatingItems, setUpdatingItems] = useState<Set<string>>(new Set());
 
-  const updateQuantity = (id: number, newQuantity: number) => {
+  const handleQuantityChange = async (item: CartItem, change: number) => {
+    const newQuantity = item.quantity + change;
     if (newQuantity <= 0) {
-      removeItem(id);
+      await removeFromCart(item._id);
       return;
     }
-    setCartItems((items) =>
-      items.map((item) =>
-        item.id === id ? { ...item, quantity: newQuantity } : item
-      )
+
+    setUpdatingItems(prev => new Set(prev).add(item._id));
+    try {
+      await updateCartItem(item._id, { quantity: newQuantity });
+    } finally {
+      setUpdatingItems(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(item._id);
+        return newSet;
+      });
+    }
+  };
+
+  const handleRemoveItem = async (itemId: string) => {
+    await removeFromCart(itemId);
+  };
+
+  const handleClearCart = async () => {
+    if (window.confirm("Are you sure you want to clear your cart?")) {
+      await clearCart();
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background font-roboto">
+        <Navbar />
+        <div className="container mx-auto px-4 py-16">
+          <div className="flex items-center justify-center h-96">
+            <div className="flex items-center gap-2">
+              <Loader2 className="h-8 w-8 animate-spin" />
+              <span className="text-lg">Loading cart...</span>
+            </div>
+          </div>
+        </div>
+        <Footer />
+      </div>
     );
-  };
+  }
 
-  const removeItem = (id: number) => {
-    setCartItems((items) => items.filter((item) => item.id !== id));
-  };
-
-  const subtotal = cartItems.reduce(
-    (sum, item) => sum + item.price * item.quantity,
-    0
-  );
-  const originalTotal = cartItems.reduce(
-    (sum, item) => sum + item.originalPrice * item.quantity,
-    0
-  );
-  const totalSavings = originalTotal - subtotal;
-  const shippingFee = subtotal > 499 ? 0 : 99;
-  const finalTotal = subtotal + shippingFee;
-
-  if (cartItems.length === 0) {
+  if (!cartItems || cartItems.length === 0) {
     return (
       <div className="min-h-screen bg-background font-roboto">
         <Navbar />
@@ -114,26 +97,35 @@ const Cart = () => {
       <Navbar />
 
       <div className="container mx-auto px-4 py-6">
-        <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-6">
-          Shopping Cart ({cartItems.length} items)
-        </h1>
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-2xl md:text-3xl font-bold text-foreground">
+            Shopping Cart ({cartItems.length} items)
+          </h1>
+          <Button 
+            variant="outline" 
+            onClick={handleClearCart}
+            className="text-destructive hover:text-destructive"
+          >
+            Clear Cart
+          </Button>
+        </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Cart Items */}
           <div className="lg:col-span-2 space-y-4">
             {cartItems.map((item) => (
-              <Card key={item.id} className="p-4">
+              <Card key={item._id} className="p-4">
                 <CardContent className="p-0">
                   <div className="flex flex-col md:flex-row gap-4">
                     <img
-                      src={item.image}
-                      alt={item.name}
+                      src={item.productId.images?.[0] || "/placeholder.svg"}
+                      alt={item.productId.title}
                       className="w-full md:w-32 h-32 object-cover rounded-lg"
                     />
 
                     <div className="flex-1 space-y-2">
                       <h3 className="font-semibold text-foreground text-lg">
-                        {item.name}
+                        {item.productId.title}
                       </h3>
 
                       <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
@@ -145,9 +137,11 @@ const Cart = () => {
                         <span className="text-xl font-bold text-price">
                           ₹{item.price.toLocaleString()}
                         </span>
-                        <span className="text-sm text-muted-foreground line-through">
-                          ₹{item.originalPrice.toLocaleString()}
-                        </span>
+                        {item.originalPrice && (
+                          <span className="text-sm text-muted-foreground line-through">
+                            ₹{item.originalPrice.toLocaleString()}
+                          </span>
+                        )}
                       </div>
 
                       <div className="flex items-center justify-between">
@@ -155,21 +149,23 @@ const Cart = () => {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() =>
-                              updateQuantity(item.id, item.quantity - 1)
-                            }
+                            onClick={() => handleQuantityChange(item, -1)}
+                            disabled={updatingItems.has(item._id)}
                           >
                             <Minus className="h-4 w-4" />
                           </Button>
                           <span className="px-4 py-2 border-x border-border">
-                            {item.quantity}
+                            {updatingItems.has(item._id) ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              item.quantity
+                            )}
                           </span>
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() =>
-                              updateQuantity(item.id, item.quantity + 1)
-                            }
+                            onClick={() => handleQuantityChange(item, 1)}
+                            disabled={updatingItems.has(item._id)}
                           >
                             <Plus className="h-4 w-4" />
                           </Button>
@@ -178,8 +174,9 @@ const Cart = () => {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => removeItem(item.id)}
+                          onClick={() => handleRemoveItem(item._id)}
                           className="text-destructive hover:text-destructive"
+                          disabled={updatingItems.has(item._id)}
                         >
                           <Trash2 className="h-4 w-4 mr-1" />
                           Remove
@@ -218,44 +215,58 @@ const Cart = () => {
                   Order Summary
                 </h3>
 
-                <div className="space-y-3 mb-4">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">
-                      Subtotal ({cartItems.length} items)
-                    </span>
-                    <span className="font-medium">
-                      ₹{subtotal.toLocaleString()}
-                    </span>
-                  </div>
+                {cartSummary ? (
+                  <>
+                    <div className="space-y-3 mb-4">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">
+                          Subtotal ({cartSummary.summary.totalItems} items)
+                        </span>
+                        <span className="font-medium">
+                          ₹{cartSummary.summary.subtotal.toLocaleString()}
+                        </span>
+                      </div>
 
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Shipping Fee</span>
-                    <span className="font-medium">
-                      {shippingFee === 0 ? (
-                        <span className="text-success">FREE</span>
-                      ) : (
-                        `₹${shippingFee}`
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Shipping Fee</span>
+                        <span className="font-medium">
+                          {cartSummary.summary.shippingFee === 0 ? (
+                            <span className="text-success">FREE</span>
+                          ) : (
+                            `₹${cartSummary.summary.shippingFee}`
+                          )}
+                        </span>
+                      </div>
+
+                      {cartSummary.summary.totalSavings > 0 && (
+                        <div className="flex justify-between text-success">
+                          <span>Total Savings</span>
+                          <span className="font-medium">
+                            -₹{cartSummary.summary.totalSavings.toLocaleString()}
+                          </span>
+                        </div>
                       )}
-                    </span>
-                  </div>
+                    </div>
 
-                  <div className="flex justify-between text-success">
-                    <span>Total Savings</span>
-                    <span className="font-medium">
-                      -₹{totalSavings.toLocaleString()}
-                    </span>
+                    <div className="border-t border-border pt-3 mb-4">
+                      <div className="flex justify-between text-lg font-bold">
+                        <span>Total</span>
+                        <span>₹{cartSummary.summary.finalTotal.toLocaleString()}</span>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-center py-4">
+                    <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
+                    <span className="text-sm text-muted-foreground">Calculating...</span>
                   </div>
-                </div>
-
-                <div className="border-t border-border pt-3 mb-4">
-                  <div className="flex justify-between text-lg font-bold">
-                    <span>Total</span>
-                    <span>₹{finalTotal.toLocaleString()}</span>
-                  </div>
-                </div>
+                )}
 
                 <Link to="/checkout">
-                  <Button className="w-full bg-primary hover:bg-primary-hover text-primary-foreground font-medium text-lg py-6 mb-4">
+                  <Button 
+                    className="w-full bg-primary hover:bg-primary-hover text-primary-foreground font-medium text-lg py-6 mb-4"
+                    disabled={!cartSummary}
+                  >
                     Proceed to Checkout
                   </Button>
                 </Link>
@@ -265,7 +276,7 @@ const Cart = () => {
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <Truck className="h-4 w-4 text-success" />
                     <span>
-                      {shippingFee === 0
+                      {cartSummary?.summary.shippingFee === 0
                         ? "Free delivery on this order"
                         : "Free delivery on orders above ₹499"}
                     </span>

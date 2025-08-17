@@ -16,11 +16,17 @@ import {
 } from "@/components/ui/select";
 import { Star, ShoppingCart, SlidersHorizontal, Loader2 } from "lucide-react";
 import { apiService, Product } from "@/lib/api";
+import { useCart } from "@/hooks/useCart";
+import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
 
 const brands = ["TechCorp", "SportBrand", "GameTech", "FashionHub"];
 
 const ProductListing = () => {
   const { categoryName } = useParams();
+  const { addToCart } = useCart();
+  const { isAuthenticated } = useAuth();
+  const { toast } = useToast();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -28,6 +34,7 @@ const ProductListing = () => {
   const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState("popularity");
   const [showFilters, setShowFilters] = useState(false);
+  const [addingToCart, setAddingToCart] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -118,6 +125,41 @@ const ProductListing = () => {
       </div>
     );
   }
+
+  const handleAddToCart = async (product: Product) => {
+    if (!isAuthenticated) {
+      toast({
+        title: "Authentication Required",
+        description: "Please login to add items to cart",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setAddingToCart(prev => new Set(prev).add(product.id));
+    try {
+      const result = await addToCart({
+        productId: product.id,
+        quantity: 1,
+        selectedAttributes: {}
+      });
+
+      if (result.success) {
+        toast({
+          title: "Success",
+          description: `${product.title} added to cart`,
+        });
+      }
+    } catch (error) {
+      console.error('Failed to add to cart:', error);
+    } finally {
+      setAddingToCart(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(product.id);
+        return newSet;
+      });
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background font-roboto">
@@ -338,10 +380,18 @@ const ProductListing = () => {
 
                         <Button 
                           className="w-full bg-primary hover:bg-primary-hover text-primary-foreground text-xs md:text-sm py-2 md:py-2"
-                          disabled={!product.inStock}
+                          disabled={!product.inStock || addingToCart.has(product.id)}
+                          onClick={() => handleAddToCart(product)}
                         >
-                          <ShoppingCart className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
-                          {product.inStock ? 'Add to Cart' : 'Out of Stock'}
+                          {addingToCart.has(product.id) ? (
+                            <Loader2 className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2 animate-spin" />
+                          ) : (
+                            <ShoppingCart className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
+                          )}
+                          {addingToCart.has(product.id) 
+                            ? 'Adding...' 
+                            : (product.inStock ? 'Add to Cart' : 'Out of Stock')
+                          }
                         </Button>
                       </CardContent>
                     </Card>
