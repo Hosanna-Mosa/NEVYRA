@@ -1,5 +1,5 @@
 const bcrypt = require("bcrypt");
-const jwt = require("jsonwebtoken");
+const { generateUserToken } = require("../utils/jwtUtils");
 const { User } = require("../models");
 const { isEmail, isStrongPassword, isValidPhone, isValidName } = require("../utils/validators");
 const { sendOTPEmail } = require("../utils/emailService");
@@ -140,11 +140,11 @@ exports.login = async (req, res, next) => {
     }
 
     // Generate JWT token
-    const token = jwt.sign(
-      { id: user._id, email: user.email, isAdmin: user.isAdmin },
-      process.env.JWT_SECRET || "your-super-secret-jwt-key-change-this-in-production",
-      { expiresIn: process.env.JWT_EXPIRES_IN || "7d" }
-    );
+    const token = generateUserToken({
+      id: user._id,
+      email: user.email,
+      isAdmin: user.isAdmin
+    });
 
     return res.json({
       success: true,
@@ -468,19 +468,28 @@ exports.getAddresses = async (req, res, next) => {
 
 exports.addAddress = async (req, res, next) => {
   try {
-    const { firstName, lastName, email, phone, address, city, zipCode } = req.body;
-    if (!firstName || !lastName || !email || !phone || !address || !city || !zipCode) {
-      return res.status(400).json({ success: false, message: "All address fields required", data: null });
+    const { firstName, lastName, email, phone, address, city, zipCode, state } = req.body;
+    if (!firstName || !lastName || !email || !phone || !address || !city || !zipCode || !state) {
+      return res.status(400).json({ success: false, message: "All address fields required including state", data: null });
     }
     const user = await User.findById(req.user.id);
     if (!user) {
       return res.status(404).json({ success: false, message: "User not found", data: null });
     }
     user.addresses = user.addresses || [];
-    user.addresses.push({ firstName, lastName, email, phone, address, city, zipCode });
+    
+    // Ensure all existing addresses have at least an empty state field
+    user.addresses.forEach(addr => {
+      if (!addr.state) {
+        addr.state = ""; // Provide default empty state for existing addresses
+      }
+    });
+    
+    user.addresses.push({ firstName, lastName, email, phone, address, city, zipCode, state });
     await user.save();
     return res.status(201).json({ success: true, message: "Address added", data: user.addresses });
   } catch (err) {
+    console.error("addAddress error:", err);
     next(err);
   }
 };
@@ -489,18 +498,30 @@ exports.addAddress = async (req, res, next) => {
 exports.updateAddressByIndex = async (req, res, next) => {
   try {
     const idx = parseInt(req.params.index, 10);
-    const { firstName, lastName, email, phone, address, city, zipCode } = req.body;
-    if ([firstName, lastName, email, phone, address, city, zipCode].some(f => !f)) {
-      return res.status(400).json({ success: false, message: "All address fields required", data: null });
+    const { firstName, lastName, email, phone, address, city, zipCode, state } = req.body;
+    
+    if ([firstName, lastName, email, phone, address, city, zipCode, state].some(f => !f)) {
+      return res.status(400).json({ success: false, message: "All address fields required including state", data: null });
     }
     const user = await User.findById(req.user.id);
     if (!user || !user.addresses || idx < 0 || idx >= user.addresses.length) {
       return res.status(404).json({ success: false, message: "Address not found", data: null });
     }
-    user.addresses[idx] = { firstName, lastName, email, phone, address, city, zipCode };
+    
+    // Update the specific address with all fields including state
+    user.addresses[idx] = { firstName, lastName, email, phone, address, city, zipCode, state };
+    
+    // Also ensure all other addresses have at least an empty state field to avoid validation errors
+    user.addresses.forEach((addr, index) => {
+      if (index !== idx && !addr.state) {
+        addr.state = ""; // Provide default empty state for existing addresses
+      }
+    });
+    
     await user.save();
     return res.json({ success: true, message: "Address updated", data: user.addresses });
   } catch (err) {
+    console.error("updateAddressByIndex error:", err);
     next(err);
   }
 };

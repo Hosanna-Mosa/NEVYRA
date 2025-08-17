@@ -41,17 +41,8 @@ const Login: React.FC = () => {
         setLoading(false);
         return;
       }
-      // Decode JWT to check isAdmin
-      const token = data.data.token;
-      const payload = JSON.parse(atob(token.split(".")[1]));
-      if (!payload.isAdmin) {
-        setError("You do not have admin access.");
-        toast({ title: "Access denied", description: "You do not have admin privileges.", });
-        setLoading(false);
-        return;
-      }
-      // Store token and redirect
-      localStorage.setItem("admin_token", token);
+      
+      // Login successful - token is already stored by the API
       toast({ title: "Login successful", description: "Welcome, admin!", });
       navigate("/");
     } catch (err) {

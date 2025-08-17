@@ -17,6 +17,7 @@ const userSchema = new mongoose.Schema(
         phone: { type: String, required: true },
         address: { type: String, required: true },
         city: { type: String, required: true },
+        state: { type: String, required: false }, // Make optional to avoid validation errors with existing data
         zipCode: { type: String, required: true },
       }
     ],

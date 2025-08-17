@@ -15,454 +15,401 @@ import {
   ArrowLeft,
   Search,
   Filter,
-  X
+  X,
+  Loader2,
+  Package,
+  Calendar,
+  MapPin,
+  CreditCard
 } from "lucide-react";
-import phoneProduct from "@/assets/phone-product.jpg";
-import shoesProduct from "@/assets/shoes-product.jpg";
-import laptopProduct from "@/assets/laptop-product.jpg";
-
-const orders = [
-  {
-    id: "NVR001234",
-    date: "2023-12-15",
-    status: "Delivered",
-    deliveryDate: "Jul 11",
-    total: 432,
-    items: [
-      {
-        name: "Richer Large 36 L Laptop Backpack Paradise",
-        image: laptopProduct,
-        quantity: 1,
-        price: 432,
-        color: "Black"
-      }
-    ]
-  },
-  {
-    id: "NVR001235",
-    date: "2023-12-10",
-    status: "Cancelled",
-    deliveryDate: "Jul 06",
-    total: 413,
-    items: [
-      {
-        name: "ENSURE Clinically Proven Nutritional Drink",
-        image: phoneProduct,
-        quantity: 1,
-        price: 413,
-        color: "Chocolate"
-      }
-    ]
-  },
-  {
-    id: "NVR001236",
-    date: "2023-12-05",
-    status: "Cancelled",
-    deliveryDate: "Jun 13",
-    total: 173,
-    items: [
-      {
-        name: "Print maker Back Cover for Realme 12 Pro",
-        image: shoesProduct,
-        quantity: 1,
-        price: 173,
-        color: "Multicolor"
-      }
-    ]
-  },
-  {
-    id: "NVR001237",
-    date: "2023-12-01",
-    status: "Delivered",
-    deliveryDate: "Jun 19",
-    total: 186,
-    items: [
-      {
-        name: "75 L Grey Laundry Basket",
-        image: phoneProduct,
-        quantity: 1,
-        price: 186,
-        color: "Grey"
-      }
-    ]
-  }
-];
+import { apiService, Order } from "@/lib/api";
+import { useToast } from "@/hooks/use-toast";
 
 const Orders = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilters, setStatusFilters] = useState<string[]>([]);
   const [timeFilters, setTimeFilters] = useState<string[]>([]);
-  const [filteredOrders, setFilteredOrders] = useState(orders);
+  const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
+
+  useEffect(() => {
+    fetchOrders();
+  }, []);
+
+  const fetchOrders = async () => {
+    try {
+      setLoading(true);
+      const response = await apiService.getUserOrders();
+      if (response.success) {
+        setOrders(response.data);
+        setFilteredOrders(response.data);
+      } else {
+        toast({
+          title: "Error",
+          description: response.message || "Failed to fetch orders",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Failed to fetch orders:", error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch orders",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Filter orders based on search query and filters
   useEffect(() => {
     let filtered = orders;
 
-    // Search functionality
-    if (searchQuery.trim()) {
-      filtered = filtered.filter(order => 
-        order.items[0].name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        order.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        order.items[0].color.toLowerCase().includes(searchQuery.toLowerCase())
+    // Search filter
+    if (searchQuery) {
+      filtered = filtered.filter(order =>
+        order.orderNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        order.items.some(item => 
+          item.productId.title.toLowerCase().includes(searchQuery.toLowerCase())
+        )
       );
     }
 
-    // Status filtering
+    // Status filter
     if (statusFilters.length > 0) {
-      filtered = filtered.filter(order => 
-        statusFilters.includes(order.status.toLowerCase())
-      );
+      filtered = filtered.filter(order => statusFilters.includes(order.status));
     }
 
-    // Time filtering
+    // Time filter
     if (timeFilters.length > 0) {
+      const now = new Date();
       filtered = filtered.filter(order => {
-        const orderDate = new Date(order.date);
-        const currentDate = new Date();
+        const orderDate = new Date(order.createdAt);
+        const daysDiff = Math.floor((now.getTime() - orderDate.getTime()) / (1000 * 60 * 60 * 24));
         
-        return timeFilters.some(filter => {
-          switch (filter) {
-            case "last-30-days":
-              const thirtyDaysAgo = new Date();
-              thirtyDaysAgo.setDate(currentDate.getDate() - 30);
-              return orderDate >= thirtyDaysAgo;
-            case "2024":
-              return orderDate.getFullYear() === 2024;
-            case "2023":
-              return orderDate.getFullYear() === 2023;
-            case "2022":
-              return orderDate.getFullYear() === 2022;
-            case "2021":
-              return orderDate.getFullYear() === 2021;
-            case "older":
-              return orderDate.getFullYear() < 2021;
-            default:
-              return true;
-          }
-        });
+        if (timeFilters.includes("last7days") && daysDiff <= 7) return true;
+        if (timeFilters.includes("last30days") && daysDiff <= 30) return true;
+        if (timeFilters.includes("last3months") && daysDiff <= 90) return true;
+        if (timeFilters.includes("last6months") && daysDiff <= 180) return true;
+        return false;
       });
     }
 
     setFilteredOrders(filtered);
-  }, [searchQuery, statusFilters, timeFilters]);
+  }, [orders, searchQuery, statusFilters, timeFilters]);
 
-  const getStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
-      case "delivered":
-        return "bg-green-500";
-      case "cancelled":
-        return "bg-red-500";
-      case "shipped":
-        return "bg-blue-500";
-      case "processing":
-        return "bg-yellow-500";
-      default:
-        return "bg-gray-500";
-    }
-  };
-
-  const getStatusText = (status: string) => {
-    switch (status.toLowerCase()) {
-      case "delivered":
-        return "Delivered";
-      case "cancelled":
-        return "Cancelled";
-      case "shipped":
-        return "On the way";
-      case "processing":
-        return "Processing";
-      default:
-        return status;
-    }
-  };
-
-  const handleOrderClick = (orderId: string) => {
-    navigate(`/order/${orderId}`);
-  };
-
-  const handleBack = () => {
-    navigate(-1);
-  };
-
-  const handleStatusFilterChange = (status: string, checked: boolean) => {
+  const handleStatusFilter = (status: string, checked: boolean) => {
     if (checked) {
-      setStatusFilters(prev => [...prev, status]);
+      setStatusFilters([...statusFilters, status]);
     } else {
-      setStatusFilters(prev => prev.filter(s => s !== status));
+      setStatusFilters(statusFilters.filter(s => s !== status));
     }
   };
 
-  const handleTimeFilterChange = (timeFilter: string, checked: boolean) => {
+  const handleTimeFilter = (time: string, checked: boolean) => {
     if (checked) {
-      setTimeFilters(prev => [...prev, timeFilter]);
+      setTimeFilters([...timeFilters, time]);
     } else {
-      setTimeFilters(prev => prev.filter(t => t !== timeFilter));
+      setTimeFilters(timeFilters.filter(t => t !== time));
     }
   };
 
-  const clearAllFilters = () => {
+  const clearFilters = () => {
     setSearchQuery("");
     setStatusFilters([]);
     setTimeFilters([]);
   };
 
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "Delivered":
+        return "bg-success text-success-foreground";
+      case "Shipped":
+      case "Out for Delivery":
+        return "bg-primary text-primary-foreground";
+      case "Processing":
+      case "Confirmed":
+        return "bg-warning text-warning-foreground";
+      case "Cancelled":
+        return "bg-destructive text-destructive-foreground";
+      case "Returned":
+        return "bg-secondary text-secondary-foreground";
+      default:
+        return "bg-muted text-muted-foreground";
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
+
+  const getEstimatedDelivery = (order: Order) => {
+    if (order.estimatedDelivery) {
+      const date = new Date(order.estimatedDelivery);
+      return date.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric'
+      });
+    }
+    return "TBD";
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background font-roboto">
+        <Navbar />
+        <div className="container mx-auto px-4 py-6">
+          <div className="flex items-center justify-center h-96">
+            <div className="flex items-center gap-2">
+              <Loader2 className="h-8 w-8 animate-spin" />
+              <span className="text-lg">Loading orders...</span>
+            </div>
+          </div>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background font-roboto">
       <Navbar />
-      
-      {/* Breadcrumbs */}
-      <div className="bg-white border-b border-gray-200 px-3 py-2">
-        <div className="text-xs text-gray-600">
-          Home &gt; My Account &gt; My Orders
+
+      <div className="container mx-auto px-4 py-6">
+        {/* Header */}
+        <div className="flex items-center gap-4 mb-6">
+          <Button
+            variant="ghost"
+            onClick={() => navigate(-1)}
+            className="p-2"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold text-foreground">
+              My Orders
+            </h1>
+            <p className="text-muted-foreground">
+              Track and manage your orders
+            </p>
+          </div>
         </div>
-      </div>
 
-      {/* Main Content */}
-      <div className="flex flex-col lg:flex-row">
-        {/* Filters Sidebar - Hidden on mobile, shown on desktop */}
-        <div className="hidden lg:block lg:w-64 bg-white border-r border-gray-200 p-4">
-          <h3 className="font-semibold text-sm mb-4">Filters</h3>
-          
-                     {/* Order Status */}
-           <div className="mb-6">
-             <h4 className="font-medium text-sm mb-3">ORDER STATUS</h4>
-             <div className="space-y-2">
-               <div className="flex items-center space-x-2">
-                 <Checkbox 
-                   id="on-the-way" 
-                   checked={statusFilters.includes("shipped")}
-                   onCheckedChange={(checked) => handleStatusFilterChange("shipped", checked as boolean)}
-                 />
-                 <label htmlFor="on-the-way" className="text-sm">On the way</label>
-               </div>
-               <div className="flex items-center space-x-2">
-                 <Checkbox 
-                   id="delivered" 
-                   checked={statusFilters.includes("delivered")}
-                   onCheckedChange={(checked) => handleStatusFilterChange("delivered", checked as boolean)}
-                 />
-                 <label htmlFor="delivered" className="text-sm">Delivered</label>
-               </div>
-               <div className="flex items-center space-x-2">
-                 <Checkbox 
-                   id="cancelled" 
-                   checked={statusFilters.includes("cancelled")}
-                   onCheckedChange={(checked) => handleStatusFilterChange("cancelled", checked as boolean)}
-                 />
-                 <label htmlFor="cancelled" className="text-sm">Cancelled</label>
-               </div>
-               <div className="flex items-center space-x-2">
-                 <Checkbox 
-                   id="returned" 
-                   checked={statusFilters.includes("returned")}
-                   onCheckedChange={(checked) => handleStatusFilterChange("returned", checked as boolean)}
-                 />
-                 <label htmlFor="returned" className="text-sm">Returned</label>
-               </div>
-             </div>
-           </div>
+        {/* Search and Filters */}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-6">
+          {/* Search */}
+          <div className="lg:col-span-2">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search orders by order number or product name..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+          </div>
 
-           {/* Order Time */}
-           <div>
-             <h4 className="font-medium text-sm mb-3">ORDER TIME</h4>
-             <div className="space-y-2">
-               <div className="flex items-center space-x-2">
-                 <Checkbox 
-                   id="last-30-days" 
-                   checked={timeFilters.includes("last-30-days")}
-                   onCheckedChange={(checked) => handleTimeFilterChange("last-30-days", checked as boolean)}
-                 />
-                 <label htmlFor="last-30-days" className="text-sm">Last 30 days</label>
-               </div>
-               <div className="flex items-center space-x-2">
-                 <Checkbox 
-                   id="2024" 
-                   checked={timeFilters.includes("2024")}
-                   onCheckedChange={(checked) => handleTimeFilterChange("2024", checked as boolean)}
-                 />
-                 <label htmlFor="2024" className="text-sm">2024</label>
-               </div>
-               <div className="flex items-center space-x-2">
-                 <Checkbox 
-                   id="2023" 
-                   checked={timeFilters.includes("2023")}
-                   onCheckedChange={(checked) => handleTimeFilterChange("2023", checked as boolean)}
-                 />
-                 <label htmlFor="2023" className="text-sm">2023</label>
-               </div>
-               <div className="flex items-center space-x-2">
-                 <Checkbox 
-                   id="2022" 
-                   checked={timeFilters.includes("2022")}
-                   onCheckedChange={(checked) => handleTimeFilterChange("2022", checked as boolean)}
-                 />
-                 <label htmlFor="2022" className="text-sm">2022</label>
-               </div>
-               <div className="flex items-center space-x-2">
-                 <Checkbox 
-                   id="2021" 
-                   checked={timeFilters.includes("2021")}
-                   onCheckedChange={(checked) => handleTimeFilterChange("2021", checked as boolean)}
-                 />
-                 <label htmlFor="2021" className="text-sm">2021</label>
-               </div>
-               <div className="flex items-center space-x-2">
-                 <Checkbox 
-                   id="older" 
-                   checked={timeFilters.includes("older")}
-                   onCheckedChange={(checked) => handleTimeFilterChange("older", checked as boolean)}
-                 />
-                 <label htmlFor="older" className="text-sm">Older</label>
-               </div>
-             </div>
-           </div>
+          {/* Filter Button */}
+          <div className="lg:col-span-2">
+            <Button
+              variant="outline"
+              onClick={() => document.getElementById('filters')?.classList.toggle('hidden')}
+              className="w-full lg:w-auto"
+            >
+              <Filter className="h-4 w-4 mr-2" />
+              Filters
+              {(statusFilters.length > 0 || timeFilters.length > 0) && (
+                <Badge variant="secondary" className="ml-2">
+                  {statusFilters.length + timeFilters.length}
+                </Badge>
+              )}
+            </Button>
+          </div>
+        </div>
 
-           {/* Clear Filters Button */}
-           {(statusFilters.length > 0 || timeFilters.length > 0) && (
-             <div className="mt-4">
-               <Button 
-                 variant="outline" 
-                 size="sm" 
-                 onClick={clearAllFilters}
-                 className="w-full text-xs"
-               >
-                 <X className="h-3 w-3 mr-1" />
-                 Clear All Filters
-               </Button>
-             </div>
-           )}
+        {/* Filters Panel */}
+        <div id="filters" className="hidden lg:block mb-6">
+          <Card>
+            <CardContent className="p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                {/* Status Filters */}
+                <div>
+                  <h3 className="font-semibold text-foreground mb-3">Order Status</h3>
+                  <div className="space-y-2">
+                    {["Pending", "Confirmed", "Processing", "Shipped", "Out for Delivery", "Delivered", "Cancelled", "Returned"].map((status) => (
+                      <div key={status} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={status}
+                          checked={statusFilters.includes(status)}
+                          onCheckedChange={(checked) => handleStatusFilter(status, checked as boolean)}
+                        />
+                        <label htmlFor={status} className="text-sm text-foreground cursor-pointer">
+                          {status}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Time Filters */}
+                <div>
+                  <h3 className="font-semibold text-foreground mb-3">Time Period</h3>
+                  <div className="space-y-2">
+                    {[
+                      { key: "last7days", label: "Last 7 days" },
+                      { key: "last30days", label: "Last 30 days" },
+                      { key: "last3months", label: "Last 3 months" },
+                      { key: "last6months", label: "Last 6 months" }
+                    ].map((time) => (
+                      <div key={time.key} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={time.key}
+                          checked={timeFilters.includes(time.key)}
+                          onCheckedChange={(checked) => handleTimeFilter(time.key, checked as boolean)}
+                        />
+                        <label htmlFor={time.key} className="text-sm text-foreground cursor-pointer">
+                          {time.label}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Clear Filters */}
+                <div className="lg:col-span-2 flex items-end">
+                  <Button
+                    variant="outline"
+                    onClick={clearFilters}
+                    className="w-full"
+                  >
+                    <X className="h-4 w-4 mr-2" />
+                    Clear All Filters
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Orders List */}
-        <div className="flex-1 bg-gray-50">
-                     {/* Search Bar */}
-           <div className="bg-white border-b border-gray-200 p-4">
-             <div className="flex gap-2">
-               <Input 
-                 placeholder="Search your orders here" 
-                 className="flex-1"
-                 value={searchQuery}
-                 onChange={(e) => setSearchQuery(e.target.value)}
-               />
-               {searchQuery && (
-                 <Button 
-                   variant="ghost" 
-                   size="sm"
-                   onClick={() => setSearchQuery("")}
-                   className="text-gray-500 hover:text-gray-700"
-                 >
-                   <X className="h-4 w-4" />
-                 </Button>
-               )}
-             </div>
-             {/* Active Filters Display */}
-             {(statusFilters.length > 0 || timeFilters.length > 0) && (
-               <div className="flex flex-wrap gap-2 mt-2">
-                 {statusFilters.map(filter => (
-                   <Badge key={filter} variant="secondary" className="text-xs">
-                     {filter.charAt(0).toUpperCase() + filter.slice(1)}
-                   </Badge>
-                 ))}
-                 {timeFilters.map(filter => (
-                   <Badge key={filter} variant="secondary" className="text-xs">
-                     {filter === "last-30-days" ? "Last 30 days" : filter}
-                   </Badge>
-                 ))}
-               </div>
-             )}
-           </div>
-
-                                   {/* Orders */}
-             <div className="p-4 space-y-4">
-               {filteredOrders.length === 0 ? (
-                 <div className="text-center py-8">
-                   <p className="text-gray-500 text-sm">
-                     {searchQuery || statusFilters.length > 0 || timeFilters.length > 0 
-                       ? "No orders found matching your criteria." 
-                       : "No orders found."}
-                   </p>
-                   {(searchQuery || statusFilters.length > 0 || timeFilters.length > 0) && (
-                     <Button 
-                       variant="outline" 
-                       size="sm" 
-                       onClick={clearAllFilters}
-                       className="mt-2"
-                     >
-                       Clear Filters
-                     </Button>
-                   )}
-                 </div>
-               ) : (
-                 <>
-                   <div className="text-sm text-gray-600 mb-2">
-                     Showing {filteredOrders.length} of {orders.length} orders
-                   </div>
-                   {filteredOrders.map((order) => (
-                <Card 
-                  key={order.id} 
-                  className="bg-white border border-gray-200 cursor-pointer hover:shadow-md transition-shadow"
-                  onClick={() => handleOrderClick(order.id)}
-                >
-                  <CardContent className="p-4">
-                    {/* Order Item */}
-                    <div className="flex gap-4">
-                      <img
-                        src={order.items[0].image}
-                        alt={order.items[0].name}
-                        className="w-20 h-20 object-cover rounded"
-                      />
-                      <div className="flex-1">
-                        <h3 className="font-medium text-sm text-gray-900 line-clamp-2">
-                          {order.items[0].name}
-                        </h3>
-                        <p className="text-xs text-gray-600 mt-1">Color: {order.items[0].color}</p>
-                        <p className="text-sm font-medium text-gray-900 mt-1">₹{order.total}</p>
-                        
-                        {/* Status */}
-                        <div className="flex items-center gap-2 mt-2">
-                          <div className={`w-2 h-2 rounded-full ${getStatusColor(order.status)}`}></div>
-                          <span className="text-xs text-gray-600">
-                            {getStatusText(order.status)} on {order.deliveryDate}
-                          </span>
-                        </div>
-                        
-                        {/* Additional Info */}
-                        {order.status === "Delivered" && (
-                          <p className="text-xs text-gray-600 mt-1">Your item has been delivered</p>
-                        )}
-                        {order.status === "Cancelled" && order.id === "NVR001236" && (
-                          <p className="text-xs text-gray-600 mt-1">
-                            You requested a cancellation because you changed your mind about this product.
-                          </p>
-                        )}
+        {filteredOrders.length === 0 ? (
+          <Card>
+            <CardContent className="p-12 text-center">
+              <Package className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-foreground mb-2">
+                {orders.length === 0 ? "No orders yet" : "No orders match your filters"}
+              </h3>
+              <p className="text-muted-foreground mb-4">
+                {orders.length === 0 
+                  ? "Start shopping to see your orders here"
+                  : "Try adjusting your search or filters"
+                }
+              </p>
+              {orders.length === 0 && (
+                <Button onClick={() => navigate('/')}>
+                  Start Shopping
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-4">
+            {filteredOrders.map((order) => (
+              <Card key={order._id} className="hover:shadow-md transition-shadow">
+                <CardContent className="p-6">
+                  {/* Order Header */}
+                  <div className="flex flex-col md:flex-row md:items-center justify-between mb-4 gap-4">
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-2">
+                        <Package className="h-5 w-5 text-muted-foreground" />
+                        <span className="font-mono font-medium text-foreground">
+                          {order.orderNumber}
+                        </span>
+                      </div>
+                      <Badge className={getStatusColor(order.status)}>
+                        {order.status}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                      <div className="flex items-center gap-1">
+                        <Calendar className="h-4 w-4" />
+                        <span>Ordered: {formatDate(order.createdAt)}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Truck className="h-4 w-4" />
+                        <span>Est. Delivery: {getEstimatedDelivery(order)}</span>
                       </div>
                     </div>
+                  </div>
 
-                    {/* Action Buttons */}
-                    {order.status === "Delivered" && (
-                      <div className="mt-3">
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="text-xs bg-blue-600 text-white border-blue-600 hover:bg-blue-700"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            // Handle rate & review
-                          }}
-                        >
-                          <Star className="h-3 w-3 mr-1" />
-                          Rate & Review Product
-                        </Button>
+                  {/* Order Items */}
+                  <div className="space-y-3 mb-4">
+                    {order.items.map((item) => (
+                      <div key={item._id} className="flex gap-4 border-b border-border pb-3 last:border-b-0">
+                        <img
+                          src={item.productId.images?.[0] || "/placeholder.svg"}
+                          alt={item.productId.title}
+                          className="w-16 h-16 object-cover rounded"
+                        />
+                        <div className="flex-1">
+                          <h4 className="font-medium text-foreground">{item.productId.title}</h4>
+                          <div className="text-sm text-muted-foreground">
+                            {item.color && <span>Color: {item.color}</span>}
+                            {item.size && <span className="ml-2">Size: {item.size}</span>}
+                          </div>
+                          <div className="flex justify-between items-center mt-1">
+                            <span className="text-sm">Qty: {item.quantity}</span>
+                            <span className="font-medium">₹{item.totalAmount.toLocaleString()}</span>
+                          </div>
+                        </div>
                       </div>
-                                         )}
-                   </CardContent>
-                 </Card>
-               ))}
-                 </>
-               )}
-             </div>
-        </div>
+                    ))}
+                  </div>
+
+                  {/* Order Footer */}
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-4 border-t border-border">
+                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                      <div className="flex items-center gap-1">
+                        <MapPin className="h-4 w-4" />
+                        <span>{order.shippingAddress.city}, {order.shippingAddress.state}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <CreditCard className="h-4 w-4" />
+                        <span>{order.paymentMethod}</span>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-3">
+                      <div className="text-right">
+                        <div className="text-sm text-muted-foreground">Total Amount</div>
+                        <div className="text-lg font-bold text-foreground">
+                          ₹{order.totalAmount.toLocaleString()}
+                        </div>
+                      </div>
+                      <Button
+                        onClick={() => navigate(`/order/${order._id}`)}
+                        className="bg-primary hover:bg-primary-hover text-primary-foreground"
+                      >
+                        <Eye className="h-4 w-4 mr-2" />
+                        View Details
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
       </div>
 
       <Footer />

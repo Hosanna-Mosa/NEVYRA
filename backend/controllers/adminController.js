@@ -1,6 +1,6 @@
 const Admin = require("../models/Admin");
 const bcrypt = require("bcrypt");
-const jwt = require("jsonwebtoken");
+const { generateAdminToken } = require("../utils/jwtUtils");
 
 exports.login = async (req, res, next) => {
   try {
@@ -16,11 +16,10 @@ exports.login = async (req, res, next) => {
     if (!match) {
       return res.status(401).json({ success: false, message: "Invalid credentials" });
     }
-    const token = jwt.sign(
-      { id: admin._id, email: admin.email, isAdmin: true },
-      process.env.JWT_SECRET || "secretToken",
-      { expiresIn: "7d" }
-    );
+    const token = generateAdminToken({
+      id: admin._id,
+      email: admin.email
+    });
     return res.json({
       success: true,
       message: "Login successful",
