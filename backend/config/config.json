@@ -1,0 +1,20 @@
+{
+    "development": {
+      "username": "ecomestore_user",
+      "password": "zZydoqQS91HGUcfUnVJhuhgGsiv23UBp",
+      "database": "ecomestore",
+      "host": "dpg-d1tv083e5dus73e1ksug-a.oregon-postgres.render.com",
+      "dialect": "postgres",
+      "dialectOptions": {
+        "ssl": {
+          "require": true,
+          "rejectUnauthorized": false
+        }
+      },
+      "razorpay": {
+        "key_id": "rzp_test_Hi1GYpZ5GO1ona",
+        "key_secret": "MD1ZzE5z6dXc5LovE5byCQTm"
+      }
+    }
+  }
+  
