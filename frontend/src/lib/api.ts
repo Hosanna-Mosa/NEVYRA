@@ -573,6 +573,24 @@ class ApiService {
   async getPopularSearches(): Promise<{ success: boolean; message: string; data: string[] }> {
     return this.request<{ success: boolean; message: string; data: string[] }>(`/users/popular-searches`);
   }
+
+  // Wishlist methods
+  async getWishlist(): Promise<{ success: boolean; message: string; data: Product[] }> {
+    return this.request<{ success: boolean; message: string; data: Product[] }>(`/users/wishlist`);
+  }
+
+  async toggleWishlist(productId: string): Promise<{ success: boolean; message: string; data: { action: 'added' | 'removed' } }> {
+    return this.request<{ success: boolean; message: string; data: { action: 'added' | 'removed' } }>(`/users/wishlist/toggle`, {
+      method: 'POST',
+      body: JSON.stringify({ productId }),
+    });
+  }
+
+  async removeFromWishlist(productId: string): Promise<{ success: boolean; message: string }> {
+    return this.request<{ success: boolean; message: string }>(`/users/wishlist/${productId}`, {
+      method: 'DELETE',
+    });
+  }
 }
 
 export const apiService = new ApiService(API_BASE_URL);

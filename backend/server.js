@@ -5,6 +5,7 @@ const bodyParser = require("body-parser");
 const routes = require("./routes");
 const errorHandler = require("./middlewares/errorHandler");
 const connectDB = require("./config/mongodb");
+const fixIndexes = require("./utils/fixIndexes");
 
 const app = express();
 
@@ -51,5 +52,6 @@ const PORT = process.env.PORT || 8000;
 
 app.listen(PORT, async () => {
   await connectDB();
+  await fixIndexes();
   console.log(`Server running on port ${PORT}`);
 });

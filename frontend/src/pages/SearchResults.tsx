@@ -1,11 +1,13 @@
 import { useState, useEffect } from "react";
-import { Search, ArrowLeft, Filter, Grid, List, Star } from "lucide-react";
+import { Search, ArrowLeft, Filter, Grid, List, Star, Heart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { apiService, type Product } from "@/lib/api";
+import { useCart } from "@/hooks/useCart";
+import { useAuth } from "@/hooks/useAuth";
 
 const SearchResults = () => {
   const [searchQuery, setSearchQuery] = useState("");
@@ -16,6 +18,9 @@ const SearchResults = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const isMobile = useIsMobile();
+  const { wishlistIds, toggleWishlist, isAuthenticated } = useAuth();
+  const { addToCart, cartItems, refreshCart } = useCart() as any;
+  const [adding, setAdding] = useState<Set<string>>(new Set());
 
   // Fetch results from API when query changes
   useEffect(() => {
@@ -160,12 +165,24 @@ const SearchResults = () => {
               >
                 <CardContent className="p-3">
                   <div className={viewMode === "grid" ? "space-y-2" : "flex space-x-3"}>
-                    <div className={viewMode === "grid" ? "aspect-square" : "w-20 h-20 flex-shrink-0"}>
+                    <div className={viewMode === "grid" ? "aspect-square relative" : "w-20 h-20 flex-shrink-0 relative"}>
                       <img
                         src={product.images?.[0] || "/placeholder.svg"}
                         alt={product.title}
                         className="w-full h-full object-cover rounded-md"
                       />
+                      <button
+                        className="absolute top-1 right-1 bg-white/80 hover:bg-white rounded p-1"
+                        onClick={async (e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          if (!isAuthenticated) return;
+                          await toggleWishlist(product.id);
+                        }}
+                        aria-label="Toggle wishlist"
+                      >
+                        <Heart className={`h-4 w-4 ${wishlistIds.has(product.id) ? 'fill-red-500 text-red-500' : ''}`} />
+                      </button>
                     </div>
                     
                     <div className={viewMode === "grid" ? "space-y-1" : "flex-1 space-y-1"}>
@@ -195,9 +212,36 @@ const SearchResults = () => {
                         {product.category}
                       </p>
                       
-                      <p className="font-semibold text-base text-foreground">
-                        ${product.price}
-                      </p>
+                      <div className="flex items-center justify-between">
+                        <p className="font-semibold text-base text-foreground">
+                          ${product.price}
+                        </p>
+                        {(() => {
+                          const inCart = (cartItems || []).some((ci: any) => (ci.productId?.id || ci.productId?._id || ci.productId) === product.id);
+                          const showGoToCart = inCart;
+                          return (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={async (e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                if (showGoToCart) { navigate('/cart'); return; }
+                                setAdding(prev => new Set(prev).add(product.id));
+                                try {
+                                  const res = await addToCart({ productId: product.id, quantity: 1, selectedAttributes: {} });
+                                  if (res.success) await refreshCart();
+                                } finally {
+                                  setAdding(prev => { const n = new Set(prev); n.delete(product.id); return n; });
+                                }
+                              }}
+                              disabled={adding.has(product.id)}
+                            >
+                              {adding.has(product.id) ? 'Adding…' : (showGoToCart ? 'Go to Cart' : 'Add to Cart')}
+                            </Button>
+                          );
+                        })()}
+                      </div>
                     </div>
                   </div>
                 </CardContent>

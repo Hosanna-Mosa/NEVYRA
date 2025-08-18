@@ -108,6 +108,77 @@ exports.register = async (req, res, next) => {
   }
 };
 
+// Wishlist controllers
+exports.getWishlist = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user.id).populate({ path: "wishlist", select: "title price images rating reviews category subCategory stockQuantity inStock attributes" });
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found", data: null });
+    }
+    const mapped = (user.wishlist || []).map((p) => {
+      const obj = p.toObject ? p.toObject() : { ...p };
+      obj.id = obj._id;
+      delete obj._id;
+      if (obj.attributes && typeof obj.attributes === "object") {
+        if (obj.attributes instanceof Map) {
+          obj.attributes = Object.fromEntries(obj.attributes);
+        } else if (obj.attributes.toObject) {
+          obj.attributes = obj.attributes.toObject();
+        }
+      }
+      return obj;
+    });
+    return res.json({ success: true, message: "Wishlist fetched", data: mapped });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.toggleWishlist = async (req, res, next) => {
+  try {
+    const { productId } = req.body || {};
+    if (!productId) {
+      return res.status(400).json({ success: false, message: "productId is required", data: null });
+    }
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found", data: null });
+    }
+    user.wishlist = user.wishlist || [];
+    const idx = user.wishlist.findIndex((id) => String(id) === String(productId));
+    let action;
+    if (idx >= 0) {
+      user.wishlist.splice(idx, 1);
+      action = "removed";
+    } else {
+      user.wishlist.push(productId);
+      action = "added";
+    }
+    await user.save();
+    return res.json({ success: true, message: `Product ${action} to wishlist`, data: { action } });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.removeFromWishlist = async (req, res, next) => {
+  try {
+    const { productId } = req.params;
+    if (!productId) {
+      return res.status(400).json({ success: false, message: "productId is required", data: null });
+    }
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found", data: null });
+    }
+    user.wishlist = (user.wishlist || []).filter((id) => String(id) !== String(productId));
+    await user.save();
+    return res.json({ success: true, message: "Product removed from wishlist", data: null });
+  } catch (err) {
+    next(err);
+  }
+};
+
 exports.login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
@@ -166,7 +237,9 @@ exports.login = async (req, res, next) => {
 
 exports.profile = async (req, res, next) => {
   try {
-    const user = await User.findById(req.user.id).select("-password");
+    const user = await User.findById(req.user.id)
+      .select("-password")
+      .populate({ path: "wishlist", select: "title price images rating reviews category subCategory" });
     if (!user) {
       return res
         .status(404)
