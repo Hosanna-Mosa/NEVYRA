@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ChevronRight, Star, ShoppingCart, Heart } from "lucide-react";
+import { ChevronRight, Heart } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { apiService, Product } from "@/lib/api";
@@ -23,8 +22,6 @@ const categoryBackendMap: Record<string, string> = {
 const CategoryCards = () => {
   const isMobile = useIsMobile();
   const [dataByCategory, setDataByCategory] = useState<Record<string, Product[]>>({});
-  const [topPicks, setTopPicks] = useState<Product[]>([]);
-  const [topPicksLoaded, setTopPicksLoaded] = useState<boolean>(false);
   const { wishlistIds, toggleWishlist, isAuthenticated } = useAuth();
 
   useEffect(() => {
@@ -62,32 +59,7 @@ const CategoryCards = () => {
 
   const getDisplayPrice = (p: Product) => (p.attributes as any)?.salePrice || p.price;
 
-  // Lazy-load Top Picks when it is near viewport
-  useEffect(() => {
-    if (topPicksLoaded) return;
-    const section = document.getElementById("top-picks-section");
-    if (!section) return;
-    const observer = new IntersectionObserver(
-      async (entries) => {
-        const entry = entries[0];
-        if (entry.isIntersecting || entry.intersectionRatio > 0) {
-          try {
-            const res = await apiService.getTopPicks(isMobile ? 8 : 12);
-            if (res.success) {
-              setTopPicks(res.data);
-              setTopPicksLoaded(true);
-              observer.disconnect();
-            }
-          } catch (_) {
-            observer.disconnect();
-          }
-        }
-      },
-      { root: null, rootMargin: "200px 0px", threshold: 0.01 }
-    );
-    observer.observe(section);
-    return () => observer.disconnect();
-  }, [isMobile, topPicksLoaded]);
+  // Top picks moved to dedicated component on home page
 
   return (
     <section className="py-16 bg-background">
@@ -581,72 +553,7 @@ const CategoryCards = () => {
           </div>
         </div>
 
-        {/* Top Picks for You Section */}
-        <div id="top-picks-section" className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-100">
-          <div className="flex justify-between items-center mb-6">
-            <div>
-              <h2 className="text-2xl font-bold text-blue-900 font-roboto mb-1">Top Picks for You</h2>
-              <p className="text-blue-600 text-xs">Handpicked products just for you</p>
-            </div>
-            <Link to="/bestseller" className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg flex items-center gap-1 transition-colors text-sm">
-              View More <ChevronRight className="h-3 w-3" />
-            </Link>
-          </div>
-          <div className={`${isMobile ? 'grid grid-cols-2 gap-3' : 'flex gap-4 overflow-x-auto pb-4 scrollbar-hide scroll-smooth'}`} style={!isMobile ? { scrollbarWidth: 'none', msOverflowStyle: 'none' } : {}}>
-            {(topPicks || []).map((product) => {
-              const discount = getDiscount(product);
-              const displayPrice = getDisplayPrice(product);
-              return (
-                <Link key={product.id} to={`/product/${product.id}`}>
-                  <Card className={`${isMobile ? 'w-full' : 'min-w-[200px] flex-shrink-0'} bg-white border-2 border-blue-200 hover:border-blue-400 hover:shadow-lg transition-all duration-300 cursor-pointer transform hover:-translate-y-1`}>
-                    <CardContent className="p-4">
-                      <div className="relative mb-3">
-                        <img
-                          src={product.images[0] || "/placeholder.svg"}
-                          alt={product.title}
-                          className="w-full h-32 object-cover rounded-lg"
-                          onError={(e) => {
-                            const target = e.target as HTMLImageElement;
-                            target.src = "/placeholder.svg";
-                          }}
-                        />
-                        {discount > 0 && (
-                          <Badge className="absolute top-2 left-2 bg-red-500 text-white text-xs font-semibold px-2 py-0.5">
-                            {discount}% OFF
-                          </Badge>
-                        )}
-                        <div className="absolute top-2 right-2 bg-yellow-400 text-yellow-900 text-xs font-bold px-1.5 py-0.5 rounded-full">
-                          ⭐ TOP
-                        </div>
-                      </div>
-                      <h3 className="font-medium text-sm text-gray-800 mb-1 line-clamp-2">
-                        {product.title}
-                      </h3>
-                      <div className="flex items-center gap-1 mb-2">
-                        <span className="text-sm font-bold text-blue-600">₹{displayPrice.toLocaleString()}</span>
-                        {discount > 0 && (
-                          <span className="text-xs text-gray-500 line-through">₹{product.price.toLocaleString()}</span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-1 mb-2">
-                        <div className="flex">
-                          {[...Array(5)].map((_, i) => (
-                            <Star key={i} className={`h-3 w-3 ${i < Math.round(product.rating) ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`} />
-                          ))}
-                        </div>
-                        <span className="text-xs text-gray-600 ml-1">({product.rating.toFixed(1)})</span>
-                      </div>
-                      <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs py-1.5">
-                        <ShoppingCart className="h-3 w-3 mr-1" />
-                        Add to Cart
-                      </Button>
-                    </CardContent>
-                  </Card>
-                </Link>
-              );
-            })}
-          </div>
-        </div>
+        {/* Top Picks section removed - now rendered beneath hero banner */}
 
       </div>
     </section>
