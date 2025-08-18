@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Heart, Star, MoreVertical, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -6,91 +6,68 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import phoneProduct from "@/assets/phone-product.jpg";
-import shoesProduct from "@/assets/shoes-product.jpg";
-import dressProduct from "@/assets/dress-product.jpg";
-import laptopProduct from "@/assets/laptop-product.jpg";
+import { apiService, type Product } from "@/lib/api";
+import { useAuth } from "@/hooks/useAuth";
+import { useCart } from "@/hooks/useCart";
+import { useToast } from "@/components/ui/use-toast";
 
-const wishlistItems = [
-  {
-    id: 1,
-    name: "KAJARU Solid Men Polo Neck Sweater",
-    image: phoneProduct,
-    price: 259,
-    originalPrice: 999,
-    discount: 74,
-    rating: 4.5,
-    inStock: false,
-    assured: true
-  },
-  {
-    id: 2,
-    name: "TRIPR Self Design Men Polo Neck Sweater",
-    image: shoesProduct,
-    price: 360,
-    originalPrice: 999,
-    discount: 63,
-    rating: 3.0,
-    inStock: false,
-    assured: false
-  },
-  {
-    id: 3,
-    name: "Premium Running Shoes Collection",
-    image: dressProduct,
-    price: 1299,
-    originalPrice: 2499,
-    discount: 48,
-    rating: 4.2,
-    inStock: true,
-    assured: true
-  },
-  {
-    id: 4,
-    name: "Gaming Laptop Ultra Pro",
-    image: laptopProduct,
-    price: 45999,
-    originalPrice: 59999,
-    discount: 23,
-    rating: 4.7,
-    inStock: true,
-    assured: true
-  },
-  {
-    id: 5,
-    name: "Wireless Earbuds Pro",
-    image: phoneProduct,
-    price: 4999,
-    originalPrice: 7999,
-    discount: 38,
-    rating: 4.5,
-    inStock: true,
-    assured: true
-  },
-  {
-    id: 6,
-    name: "Smart Watch Series 8",
-    image: shoesProduct,
-    price: 15999,
-    originalPrice: 19999,
-    discount: 20,
-    rating: 4.3,
-    inStock: true,
-    assured: true
-  }
-];
+const computeDiscount = (p: Product) => {
+  const sale = (p.attributes as any)?.salePrice;
+  if (sale && sale < p.price) return Math.round(((p.price - sale) / p.price) * 100);
+  return 0;
+};
 
 const Wishlist = () => {
-  const [items, setItems] = useState(wishlistItems);
+  const [items, setItems] = useState<Product[]>([]);
   const navigate = useNavigate();
+  const { refreshWishlist } = useAuth();
+  const { addToCart, refreshCart, cartItems } = useCart() as any;
+  const [adding, setAdding] = useState<Set<string>>(new Set());
+  const [added, setAdded] = useState<Set<string>>(new Set());
+  const { toast } = useToast();
 
-  const removeFromWishlist = (id: number) => {
+  useEffect(() => {
+    const load = async () => {
+      const res = await apiService.getWishlist();
+      if (res.success) setItems(res.data);
+    };
+    load();
+  }, []);
+
+  const removeFromWishlist = async (id: string) => {
+    await apiService.removeFromWishlist(id);
+    await refreshWishlist();
     setItems(items.filter(item => item.id !== id));
   };
 
-  const addToCart = (id: number) => {
-    // In a real app, this would add to cart
-    console.log(`Added item ${id} to cart`);
+  const handleAddToCart = async (id: string) => {
+    if (adding.has(id)) return;
+    setAdding((prev) => new Set(prev).add(id));
+    try {
+      const target = items.find(p => p.id === id);
+      const size = (target?.attributes as any)?.size as string | undefined;
+      const color = (target?.attributes as any)?.color as string | undefined;
+      const result = await addToCart({ productId: id, quantity: 1, size, color, selectedAttributes: {} });
+      if (result.success) {
+        toast({ title: "Added to cart", description: target?.title });
+        setAdded(prev => new Set(prev).add(id));
+        await refreshCart();
+        // Auto-remove from wishlist after adding to cart
+        try {
+          await apiService.removeFromWishlist(id);
+        } catch (_) {}
+        setItems(prev => prev.filter(p => p.id !== id));
+        await refreshWishlist();
+      } else {
+        toast({ title: "Failed to add to cart", description: result.message, variant: "destructive" });
+      }
+    } finally {
+      setAdding((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    }
   };
 
   return (
@@ -111,20 +88,29 @@ const Wishlist = () => {
       {/* Wishlist Items */}
       <div className="p-4">
         <div className="grid grid-cols-2 gap-4">
-          {items.map((item) => (
+          {items.map((item) => {
+            const inCart = (cartItems || []).some((ci: any) => (ci.productId?.id || ci.productId?._id || ci.productId) === item.id);
+            const showGoToCart = inCart || added.has(item.id);
+            return (
             <Card key={item.id} className="group hover:shadow-lg transition-shadow">
               <CardContent className="p-3">
                 <div className="relative mb-3">
                   <img
-                    src={item.image}
-                    alt={item.name}
-                    className="w-full h-40 object-cover rounded-lg"
+                    src={item.images?.[0] || "/placeholder.svg"}
+                    alt={item.title}
+                    className="max-h-40 w-auto object-contain mx-auto"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.src = "/placeholder.svg";
+                    }}
                   />
                   
                   {/* Discount Badge */}
-                  <Badge className="absolute top-2 left-2 bg-green-500 text-white text-xs">
-                    {item.discount}% ₹{item.originalPrice} ₹{item.price}
-                  </Badge>
+                  {computeDiscount(item) > 0 && (
+                    <Badge className="absolute top-2 left-2 bg-green-500 text-white text-xs">
+                      {computeDiscount(item)}% OFF
+                    </Badge>
+                  )}
                   
                   {/* More Options */}
                   <Button
@@ -138,16 +124,16 @@ const Wishlist = () => {
 
                 {/* Delivery Status */}
                 {!item.inStock && (
-                  <p className="text-red-500 text-sm font-medium mb-2">Not deliverable</p>
+                  <p className="text-red-500 text-xs font-medium mb-2 text-center">Not deliverable</p>
                 )}
 
                 {/* Product Name */}
                 <h3 className="font-medium text-foreground mb-2 line-clamp-2 text-sm">
-                  {item.name}
+                  {item.title}
                 </h3>
 
                 {/* Rating */}
-                <div className="flex items-center gap-1 mb-2">
+                <div className="flex items-center gap-1 mb-1">
                   {[...Array(5)].map((_, i) => (
                     <Star
                       key={i}
@@ -160,8 +146,15 @@ const Wishlist = () => {
                   ))}
                 </div>
 
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-sm font-bold">₹{((item.attributes as any)?.salePrice || item.price).toLocaleString()}</span>
+                  {computeDiscount(item) > 0 && (
+                    <span className="text-xs text-muted-foreground line-through">₹{item.price.toLocaleString()}</span>
+                  )}
+                </div>
+
                 {/* Assured Badge */}
-                {item.assured && (
+                {false && (
                   <div className="flex items-center gap-1 mb-3">
                     <Shield className="h-3 w-3 text-blue-500" />
                     <span className="text-xs text-blue-500 font-medium">Assured</span>
@@ -171,13 +164,15 @@ const Wishlist = () => {
                 {/* Add to Cart Button */}
                 <Button 
                   className="w-full border border-gray-300 bg-white text-black hover:bg-gray-50 text-sm"
-                  onClick={() => addToCart(item.id)}
+                  onClick={() => (showGoToCart ? navigate('/cart') : handleAddToCart(item.id))}
+                  disabled={adding.has(item.id) || (!item.inStock && !showGoToCart)}
                 >
-                  Add to Cart
+                  {adding.has(item.id) ? 'Adding…' : (showGoToCart ? 'Go to Cart' : 'Add to Cart')}
                 </Button>
               </CardContent>
             </Card>
-          ))}
+            );
+          })}
         </div>
 
         {/* Empty State */}

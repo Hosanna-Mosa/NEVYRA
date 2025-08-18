@@ -82,7 +82,7 @@ const Profile = () => {
 
   const navigate = useNavigate();
 
-  const { user, logout, isAuthenticated } = useAuth();
+  const { user, logout, isAuthenticated, wishlistIds, refreshWishlist } = useAuth();
   const { toast } = useToast();
 
   // Redirect to login if not authenticated
@@ -94,6 +94,8 @@ const Profile = () => {
     
     fetchUserProfile();
     fetchAddresses();
+    // Ensure wishlist count is up to date
+    refreshWishlist().catch(() => {});
   }, [isAuthenticated, navigate]);
 
   // Show loading while checking authentication
@@ -311,11 +313,13 @@ const isMobile = useIsMobile();
                   </Button>
                   <Button
                     variant={activeTab === "wishlist" ? "default" : "ghost"}
-                    className="w-full justify-start text-sm"
+                    className="w-full justify-between text-sm"
                     onClick={() => navigate("/wishlist")}
                   >
-                    <Heart className="h-4 w-4 mr-2" />
-                    Wishlist
+                    <span className="flex items-center"><Heart className="h-4 w-4 mr-2" />Wishlist</span>
+                    <span className="ml-2 inline-flex items-center justify-center rounded-full bg-primary text-primary-foreground text-xs h-5 min-w-[1.25rem] px-1">
+                      {wishlistIds.size}
+                    </span>
                   </Button>
                   <Button
                     variant={activeTab === "addresses" ? "default" : "ghost"}
@@ -358,7 +362,7 @@ const isMobile = useIsMobile();
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <h1 className="text-xl font-bold text-foreground">My Wishlist</h1>
-                  <span className="text-xs text-muted-foreground">{wishlistItems.length} items</span>
+                  <span className="text-xs text-muted-foreground">{wishlistIds.size} items</span>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">

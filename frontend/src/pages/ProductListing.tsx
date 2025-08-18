@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Card, CardContent } from "@/components/ui/card";
@@ -14,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Star, ShoppingCart, SlidersHorizontal, Loader2 } from "lucide-react";
+import { Star, ShoppingCart, SlidersHorizontal, Loader2, Heart } from "lucide-react";
 import { apiService, Product } from "@/lib/api";
 import { useCart } from "@/hooks/useCart";
 import { useAuth } from "@/hooks/useAuth";
@@ -24,8 +24,9 @@ const brands = ["TechCorp", "SportBrand", "GameTech", "FashionHub"];
 
 const ProductListing = () => {
   const { categoryName } = useParams();
-  const { addToCart } = useCart();
-  const { isAuthenticated } = useAuth();
+  const navigate = useNavigate();
+  const { addToCart, cartItems, refreshCart } = useCart() as any;
+  const { isAuthenticated, wishlistIds, toggleWishlist } = useAuth();
   const { toast } = useToast();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -149,6 +150,7 @@ const ProductListing = () => {
           title: "Success",
           description: `${product.title} added to cart`,
         });
+        await refreshCart();
       }
     } catch (error) {
       console.error('Failed to add to cart:', error);
@@ -343,6 +345,20 @@ const ProductListing = () => {
                                 target.src = "/placeholder.svg";
                               }}
                             />
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="absolute top-1 md:top-2 right-1 md:right-2 h-7 w-7 bg-white/80 hover:bg-white"
+                              onClick={async (e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                if (!isAuthenticated) return;
+                                await toggleWishlist(product.id);
+                              }}
+                              aria-label="Toggle wishlist"
+                            >
+                              <Heart className={`h-4 w-4 ${wishlistIds.has(product.id) ? 'fill-red-500 text-red-500' : ''}`} />
+                            </Button>
                             {discount > 0 && (
                               <Badge className="absolute top-1 md:top-2 left-1 md:left-2 bg-discount text-white text-xs md:text-sm">
                                 {discount}% OFF
@@ -378,21 +394,26 @@ const ProductListing = () => {
                           </div>
                         </Link>
 
-                        <Button 
-                          className="w-full bg-primary hover:bg-primary-hover text-primary-foreground text-xs md:text-sm py-2 md:py-2"
-                          disabled={!product.inStock || addingToCart.has(product.id)}
-                          onClick={() => handleAddToCart(product)}
-                        >
-                          {addingToCart.has(product.id) ? (
-                            <Loader2 className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2 animate-spin" />
-                          ) : (
-                            <ShoppingCart className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
-                          )}
-                          {addingToCart.has(product.id) 
-                            ? 'Adding...' 
-                            : (product.inStock ? 'Add to Cart' : 'Out of Stock')
-                          }
-                        </Button>
+                        {(() => {
+                          const inCart = (cartItems || []).some((ci: any) => (ci.productId?.id || ci.productId?._id || ci.productId) === product.id);
+                          const showGoToCart = inCart;
+                          return (
+                            <Button 
+                              className="w-full bg-primary hover:bg-primary-hover text-primary-foreground text-xs md:text-sm py-2 md:py-2"
+                              disabled={(!product.inStock && !showGoToCart) || addingToCart.has(product.id)}
+                              onClick={() => showGoToCart ? navigate('/cart') : handleAddToCart(product)}
+                            >
+                              {addingToCart.has(product.id) ? (
+                                <Loader2 className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2 animate-spin" />
+                              ) : (
+                                <ShoppingCart className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
+                              )}
+                              {addingToCart.has(product.id)
+                                ? 'Adding...'
+                                : (showGoToCart ? 'Go to Cart' : (product.inStock ? 'Add to Cart' : 'Out of Stock'))}
+                            </Button>
+                          );
+                        })()}
                       </CardContent>
                     </Card>
                   );

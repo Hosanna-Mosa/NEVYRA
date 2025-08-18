@@ -22,7 +22,7 @@ const cartItemSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Index for efficient queries
-cartItemSchema.index({ userId: 1, productId: 1 });
+// Ensure a unique compound index per user-product-size-color so we don't duplicate identical items
+cartItemSchema.index({ userId: 1, productId: 1, size: 1, color: 1 }, { unique: true });
 
 module.exports = mongoose.model("CartItem", cartItemSchema);

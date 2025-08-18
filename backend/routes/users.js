@@ -13,4 +13,9 @@ router.post("/recent-searches", authMiddleware, userSearchController.addRecentSe
 // Popular searches endpoint (no auth required)
 router.get("/popular-searches", userSearchController.getPopularSearches);
 
+// Wishlist endpoints
+router.get("/wishlist", authMiddleware, authController.getWishlist);
+router.post("/wishlist/toggle", authMiddleware, authController.toggleWishlist);
+router.delete("/wishlist/:productId", authMiddleware, authController.removeFromWishlist);
+
 module.exports = router;

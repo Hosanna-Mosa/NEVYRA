@@ -2,10 +2,11 @@ import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ChevronRight, Star, ShoppingCart } from "lucide-react";
+import { ChevronRight, Star, ShoppingCart, Heart } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { apiService, Product } from "@/lib/api";
+import { useAuth } from "@/hooks/useAuth";
 
 // Map home page sections to backend category names
 const categoryBackendMap: Record<string, string> = {
@@ -24,6 +25,7 @@ const CategoryCards = () => {
   const [dataByCategory, setDataByCategory] = useState<Record<string, Product[]>>({});
   const [topPicks, setTopPicks] = useState<Product[]>([]);
   const [topPicksLoaded, setTopPicksLoaded] = useState<boolean>(false);
+  const { wishlistIds, toggleWishlist, isAuthenticated } = useAuth();
 
   useEffect(() => {
     let isCancelled = false;
@@ -117,6 +119,18 @@ const CategoryCards = () => {
                             target.src = "/placeholder.svg";
                           }}
                         />
+                        <button
+                          className="absolute top-2 right-2 bg-white/80 hover:bg-white rounded p-1"
+                          onClick={async (e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            if (!isAuthenticated) return;
+                            await toggleWishlist(product.id);
+                          }}
+                          aria-label="Toggle wishlist"
+                        >
+                          <Heart className={`h-4 w-4 ${wishlistIds.has(product.id) ? 'fill-red-500 text-red-500' : ''}`} />
+                        </button>
                         {discount > 0 && (
                           <Badge className="absolute top-2 left-2 bg-discount text-white text-xs">
                             {discount}% OFF
@@ -166,6 +180,18 @@ const CategoryCards = () => {
                             target.src = "/placeholder.svg";
                           }}
                         />
+                        <button
+                          className="absolute top-2 right-2 bg-white/80 hover:bg-white rounded p-1"
+                          onClick={async (e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            if (!isAuthenticated) return;
+                            await toggleWishlist(product.id);
+                          }}
+                          aria-label="Toggle wishlist"
+                        >
+                          <Heart className={`h-4 w-4 ${wishlistIds.has(product.id) ? 'fill-red-500 text-red-500' : ''}`} />
+                        </button>
                         {discount > 0 && (
                           <Badge className="absolute top-2 left-2 bg-discount text-white text-xs">
                             {discount}% OFF
@@ -215,6 +241,18 @@ const CategoryCards = () => {
                             target.src = "/placeholder.svg";
                           }}
                         />
+                        <button
+                          className="absolute top-2 right-2 bg-white/80 hover:bg-white rounded p-1"
+                          onClick={async (e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            if (!isAuthenticated) return;
+                            await toggleWishlist(product.id);
+                          }}
+                          aria-label="Toggle wishlist"
+                        >
+                          <Heart className={`h-4 w-4 ${wishlistIds.has(product.id) ? 'fill-red-500 text-red-500' : ''}`} />
+                        </button>
                         {discount > 0 && (
                           <Badge className="absolute top-2 left-2 bg-discount text-white text-xs">
                             {discount}% OFF
@@ -264,6 +302,18 @@ const CategoryCards = () => {
                             target.src = "/placeholder.svg";
                           }}
                         />
+                        <button
+                          className="absolute top-2 right-2 bg-white/80 hover:bg-white rounded p-1"
+                          onClick={async (e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            if (!isAuthenticated) return;
+                            await toggleWishlist(product.id);
+                          }}
+                          aria-label="Toggle wishlist"
+                        >
+                          <Heart className={`h-4 w-4 ${wishlistIds.has(product.id) ? 'fill-red-500 text-red-500' : ''}`} />
+                        </button>
                         {discount > 0 && (
                           <Badge className="absolute top-2 left-2 bg-discount text-white text-xs">
                             {discount}% OFF
@@ -313,6 +363,18 @@ const CategoryCards = () => {
                             target.src = "/placeholder.svg";
                           }}
                         />
+                        <button
+                          className="absolute top-2 right-2 bg-white/80 hover:bg-white rounded p-1"
+                          onClick={async (e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            if (!isAuthenticated) return;
+                            await toggleWishlist(product.id);
+                          }}
+                          aria-label="Toggle wishlist"
+                        >
+                          <Heart className={`h-4 w-4 ${wishlistIds.has(product.id) ? 'fill-red-500 text-red-500' : ''}`} />
+                        </button>
                         {discount > 0 && (
                           <Badge className="absolute top-2 left-2 bg-discount text-white text-xs">
                             {discount}% OFF
@@ -362,6 +424,18 @@ const CategoryCards = () => {
                             target.src = "/placeholder.svg";
                           }}
                         />
+                        <button
+                          className="absolute top-2 right-2 bg-white/80 hover:bg-white rounded p-1"
+                          onClick={async (e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            if (!isAuthenticated) return;
+                            await toggleWishlist(product.id);
+                          }}
+                          aria-label="Toggle wishlist"
+                        >
+                          <Heart className={`h-4 w-4 ${wishlistIds.has(product.id) ? 'fill-red-500 text-red-500' : ''}`} />
+                        </button>
                         {discount > 0 && (
                           <Badge className="absolute top-2 left-2 bg-discount text-white text-xs">
                             {discount}% OFF
@@ -411,6 +485,18 @@ const CategoryCards = () => {
                             target.src = "/placeholder.svg";
                           }}
                         />
+                        <button
+                          className="absolute top-2 right-2 bg-white/80 hover:bg-white rounded p-1"
+                          onClick={async (e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            if (!isAuthenticated) return;
+                            await toggleWishlist(product.id);
+                          }}
+                          aria-label="Toggle wishlist"
+                        >
+                          <Heart className={`h-4 w-4 ${wishlistIds.has(product.id) ? 'fill-red-500 text-red-500' : ''}`} />
+                        </button>
                         {discount > 0 && (
                           <Badge className="absolute top-2 left-2 bg-discount text-white text-xs">
                             {discount}% OFF
@@ -460,6 +546,18 @@ const CategoryCards = () => {
                             target.src = "/placeholder.svg";
                           }}
                         />
+                        <button
+                          className="absolute top-2 right-2 bg-white/80 hover:bg-white rounded p-1"
+                          onClick={async (e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            if (!isAuthenticated) return;
+                            await toggleWishlist(product.id);
+                          }}
+                          aria-label="Toggle wishlist"
+                        >
+                          <Heart className={`h-4 w-4 ${wishlistIds.has(product.id) ? 'fill-red-500 text-red-500' : ''}`} />
+                        </button>
                         {discount > 0 && (
                           <Badge className="absolute top-2 left-2 bg-discount text-white text-xs">
                             {discount}% OFF

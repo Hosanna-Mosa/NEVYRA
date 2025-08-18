@@ -16,6 +16,9 @@ interface AuthContextType {
   logout: () => void;
   isAuthenticated: boolean;
   refreshUser: () => Promise<void>;
+  wishlistIds: Set<string>;
+  refreshWishlist: () => Promise<void>;
+  toggleWishlist: (productId: string) => Promise<'added' | 'removed' | null>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -35,6 +38,7 @@ interface AuthProviderProps {
 export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [wishlistIds, setWishlistIds] = useState<Set<string>>(new Set());
 
   const isAuthenticated = !!user;
 
@@ -62,6 +66,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       const response = await apiService.getProfile();
       if (response.success) {
         setUser(response.data);
+        const ids = new Set<string>(((response.data as any)?.wishlist || []).map((p: any) => p.id || p._id));
+        setWishlistIds(ids);
       } else {
         throw new Error(response.message);
       }
@@ -69,6 +75,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       console.error('Failed to refresh user:', error);
       authUtils.removeToken();
       setUser(null);
+      setWishlistIds(new Set());
       throw error;
     }
   };
@@ -133,6 +140,34 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const logout = () => {
     authUtils.removeToken();
     setUser(null);
+    setWishlistIds(new Set());
+  };
+
+  const refreshWishlist = async () => {
+    try {
+      const res = await apiService.getWishlist();
+      if (res.success) {
+        const ids = new Set<string>((res.data || []).map((p: any) => p.id || p._id));
+        setWishlistIds(ids);
+      }
+    } catch (e) {
+      // ignore
+    }
+  };
+
+  const toggleWishlist = async (productId: string): Promise<'added' | 'removed' | null> => {
+    try {
+      const res = await apiService.toggleWishlist(productId);
+      if (res.success) {
+        const next = new Set(wishlistIds);
+        if (res.data.action === 'added') next.add(productId); else next.delete(productId);
+        setWishlistIds(next);
+        return res.data.action;
+      }
+    } catch (e) {
+      // ignore
+    }
+    return null;
   };
 
   const value: AuthContextType = {
@@ -143,6 +178,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     logout,
     isAuthenticated,
     refreshUser,
+    wishlistIds,
+    refreshWishlist,
+    toggleWishlist,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

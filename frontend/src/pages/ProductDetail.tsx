@@ -20,8 +20,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 const ProductDetail = () => {
   const { productId } = useParams();
   const navigate = useNavigate();
-  const { addToCart } = useCart();
-  const { isAuthenticated, user } = useAuth();
+  const { addToCart, cartItems, refreshCart } = useCart() as any;
+  const { isAuthenticated, user, wishlistIds, toggleWishlist, refreshWishlist } = useAuth();
   const { toast } = useToast();
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
@@ -89,6 +89,12 @@ const ProductDetail = () => {
     fetchReviews();
   }, [productId]);
 
+  useEffect(() => {
+    if (product?.id) {
+      setIsWishlisted(wishlistIds.has(product.id));
+    }
+  }, [wishlistIds, product?.id]);
+
   // Fetch related products by category using backend endpoint
   useEffect(() => {
     const fetchRelated = async () => {
@@ -139,8 +145,7 @@ const ProductDetail = () => {
       });
 
       if (result.success) {
-        // Optionally navigate to cart or show success message
-        // navigate('/cart');
+        await refreshCart();
       }
     } catch (error) {
       console.error('Failed to add to cart:', error);
@@ -477,18 +482,24 @@ const ProductDetail = () => {
               </div>
 
               <div className="flex gap-3">
-                <Button 
-                  className="flex-1 bg-warning hover:bg-warning/90 text-warning-foreground font-medium text-lg py-6"
-                  disabled={!product.inStock || addingToCart}
-                  onClick={handleAddToCart}
-                >
-                  {addingToCart ? (
-                    <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                  ) : (
-                    <ShoppingCart className="h-5 w-5 mr-2" />
-                  )}
-                  {addingToCart ? 'Adding...' : 'Add to Cart'}
-                </Button>
+                {(() => {
+                  const inCart = (cartItems || []).some((ci: any) => (ci.productId?.id || ci.productId?._id || ci.productId) === product.id);
+                  const showGoToCart = inCart;
+                  return (
+                    <Button 
+                      className="flex-1 bg-warning hover:bg-warning/90 text-warning-foreground font-medium text-lg py-6"
+                      disabled={(!product.inStock && !showGoToCart) || addingToCart}
+                      onClick={() => showGoToCart ? navigate('/cart') : handleAddToCart()}
+                    >
+                      {addingToCart ? (
+                        <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                      ) : (
+                        <ShoppingCart className="h-5 w-5 mr-2" />
+                      )}
+                      {addingToCart ? 'Adding...' : (showGoToCart ? 'Go to Cart' : 'Add to Cart')}
+                    </Button>
+                  );
+                })()}
                 <Button 
                   className="flex-1 bg-primary hover:bg-primary-hover text-primary-foreground font-medium text-lg py-6"
                   disabled={!product.inStock}
@@ -501,7 +512,12 @@ const ProductDetail = () => {
                 <Button
                   variant="outline"
                   className="flex-1"
-                  onClick={() => setIsWishlisted(!isWishlisted)}
+                  onClick={async () => {
+                    if (!isAuthenticated) { navigate('/auth'); return; }
+                    if (!product) return;
+                    const res = await toggleWishlist(product.id);
+                    if (res) setIsWishlisted(res === 'added');
+                  }}
                 >
                   <Heart className={`h-4 w-4 mr-2 ${isWishlisted ? 'fill-red-500 text-red-500' : ''}`} />
                   Wishlist

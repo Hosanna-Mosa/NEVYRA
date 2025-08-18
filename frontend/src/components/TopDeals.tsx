@@ -2,14 +2,20 @@ import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Star, ShoppingCart, Loader2 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Star, ShoppingCart, Loader2, Heart } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
 import { apiService, Product } from "@/lib/api";
+import { useAuth } from "@/hooks/useAuth";
+import { useCart } from "@/hooks/useCart";
 
 const TopDeals = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { wishlistIds, toggleWishlist, isAuthenticated } = useAuth();
+  const { addToCart, cartItems, refreshCart } = useCart() as any;
+  const navigate = useNavigate();
+  const [adding, setAdding] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const fetchTopDeals = async () => {
@@ -142,6 +148,20 @@ const TopDeals = () => {
                           target.src = "/placeholder.svg";
                         }}
                       />
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="absolute top-1 right-1 h-7 w-7 bg-white/80 hover:bg-white"
+                        onClick={async (e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          if (!isAuthenticated) return;
+                          await toggleWishlist(product.id);
+                        }}
+                        aria-label="Toggle wishlist"
+                      >
+                        <Heart className={`h-4 w-4 ${wishlistIds.has(product.id) ? 'fill-red-500 text-red-500' : ''}`} />
+                      </Button>
                       {discount > 0 && (
                         <Badge className="absolute top-1 left-1 bg-discount text-white text-xs px-1.5 py-0.5 group-hover:scale-110 transition-transform duration-300">
                           {discount}% OFF
@@ -177,13 +197,29 @@ const TopDeals = () => {
                     </div>
                   </Link>
 
-                  <Button 
-                    className="w-full bg-primary hover:bg-primary-hover text-primary-foreground text-xs py-1.5 group-hover:scale-105 transition-all duration-200 hover:shadow-md"
-                    disabled={!product.inStock}
-                  >
-                    <ShoppingCart className="h-3 w-3 mr-1 group-hover:scale-110 transition-transform duration-200" />
-                    {product.inStock ? 'Add to Cart' : 'Out of Stock'}
-                  </Button>
+                  {(() => {
+                    const inCart = (cartItems || []).some((ci: any) => (ci.productId?.id || ci.productId?._id || ci.productId) === product.id);
+                    const showGoToCart = inCart;
+                    return (
+                      <Button 
+                        className="w-full bg-primary hover:bg-primary-hover text-primary-foreground text-xs py-1.5 group-hover:scale-105 transition-all duration-200 hover:shadow-md"
+                        disabled={(!product.inStock && !showGoToCart) || adding.has(product.id)}
+                        onClick={async () => {
+                          if (showGoToCart) { navigate('/cart'); return; }
+                          setAdding(prev => new Set(prev).add(product.id));
+                          try {
+                            const res = await addToCart({ productId: product.id, quantity: 1, selectedAttributes: {} });
+                            if (res.success) await refreshCart();
+                          } finally {
+                            setAdding(prev => { const n = new Set(prev); n.delete(product.id); return n; });
+                          }
+                        }}
+                      >
+                        <ShoppingCart className="h-3 w-3 mr-1 group-hover:scale-110 transition-transform duration-200" />
+                        {adding.has(product.id) ? 'Adding…' : (showGoToCart ? 'Go to Cart' : (product.inStock ? 'Add to Cart' : 'Out of Stock'))}
+                      </Button>
+                    );
+                  })()}
                 </CardContent>
               </Card>
             );

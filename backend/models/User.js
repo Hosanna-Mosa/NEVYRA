@@ -25,6 +25,12 @@ const userSchema = new mongoose.Schema(
       type: [String],
       default: [],
     },
+    wishlist: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Product",
+      }
+    ],
     // Forgot password fields
     resetPasswordOTP: { type: String },
     resetPasswordOTPExpires: { type: Date },
