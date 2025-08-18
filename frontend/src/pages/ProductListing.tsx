@@ -42,7 +42,10 @@ const ProductListing = () => {
       try {
         setLoading(true);
         setError(null);
-        const response = await apiService.getProducts(1, 50, categoryName);
+        // Normalize mobile slug (e.g., "groceries") to backend name (e.g., "Groceries")
+        const { toBackendCategory } = await import("@/lib/utils");
+        const normalizedCategory = toBackendCategory(categoryName);
+        const response = await apiService.getProducts(1, 50, normalizedCategory);
         
         if (response.success && response.data) {
           setProducts(response.data);
