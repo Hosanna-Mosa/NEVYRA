@@ -63,8 +63,6 @@ const Orders: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [paymentStatusFilter, setPaymentStatusFilter] = useState("all");
-  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
 
   useEffect(() => {
     fetchOrders();
@@ -158,16 +156,6 @@ const Orders: React.FC = () => {
 
   const formatCurrency = (amount: number) => {
     return `₹${amount.toLocaleString()}`;
-  };
-
-  const openOrderDetails = (order: Order) => {
-    setSelectedOrder(order);
-    setIsDetailsOpen(true);
-  };
-
-  const closeOrderDetails = () => {
-    setIsDetailsOpen(false);
-    setSelectedOrder(null);
   };
 
   // Filter orders based on search and filters
@@ -264,11 +252,7 @@ const Orders: React.FC = () => {
                   </thead>
                   <tbody className="bg-card divide-y divide-border">
                     {filteredOrders.map((order) => (
-                      <tr
-                        key={order._id}
-                        className="hover:bg-muted/50 transition-smooth cursor-pointer"
-                        onClick={() => openOrderDetails(order)}
-                      >
+                      <tr key={order._id} className="hover:bg-muted/50 transition-smooth">
                         <td className="px-3 sm:px-6 py-3 sm:py-4">
                           <div className="space-y-1">
                             <div className="font-medium text-foreground">{order.orderNumber}</div>
@@ -329,13 +313,8 @@ const Orders: React.FC = () => {
                             </Badge>
                           </div>
                         </td>
-                        <td className="px-3 sm:px-6 py-3 sm:py-4" onClick={(e) => e.stopPropagation()}>
+                        <td className="px-3 sm:px-6 py-3 sm:py-4">
                           <div className="flex flex-col gap-2">
-                            <div className="flex items-center gap-2">
-                              <Button variant="outline" size="sm" onClick={() => openOrderDetails(order)}>
-                                <Eye className="h-4 w-4 mr-1" /> View
-                              </Button>
-                            </div>
                             <Select
                               value={order.status}
                               onValueChange={(value) => updateOrderStatus(order._id, value)}
@@ -374,100 +353,6 @@ const Orders: React.FC = () => {
               )}
             </CardContent>
           </Card>
-
-          {/* Order Details Dialog */}
-          <Dialog open={isDetailsOpen} onOpenChange={(open) => (open ? setIsDetailsOpen(true) : closeOrderDetails())}>
-            <DialogContent className="max-w-3xl">
-              <DialogHeader>
-                <DialogTitle>Order Details</DialogTitle>
-              </DialogHeader>
-              {selectedOrder && (
-                <div className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="space-y-2">
-                      <div className="text-sm text-muted-foreground">Order</div>
-                      <div className="font-medium">{selectedOrder.orderNumber}</div>
-                      <div className="text-sm text-muted-foreground">{formatDate(selectedOrder.createdAt)}</div>
-                      <div className="flex gap-2 mt-1">
-                        <Badge className={`${getStatusColor(selectedOrder.status)} border`}>{selectedOrder.status}</Badge>
-                        <Badge className={`${getPaymentStatusColor(selectedOrder.paymentStatus)} border`}>{selectedOrder.paymentStatus}</Badge>
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <div className="text-sm text-muted-foreground">Customer</div>
-                      <div className="font-medium">{selectedOrder.userId.firstName} {selectedOrder.userId.lastName}</div>
-                      <div className="text-sm text-muted-foreground break-all">{selectedOrder.userId.email}</div>
-                      <div className="text-sm text-muted-foreground">{selectedOrder.shippingAddress.phone}</div>
-                    </div>
-                    <div className="space-y-2">
-                      <div className="text-sm text-muted-foreground">Payment</div>
-                      <div className="font-medium">{selectedOrder.paymentMethod}</div>
-                      {selectedOrder.trackingNumber && (
-                        <div className="text-sm text-muted-foreground">Tracking: {selectedOrder.trackingNumber}</div>
-                      )}
-                      {selectedOrder.estimatedDelivery && (
-                        <div className="text-sm text-muted-foreground">ETA: {formatDate(selectedOrder.estimatedDelivery)}</div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <div className="text-sm text-muted-foreground">Shipping Address</div>
-                    <div className="text-sm">
-                      {selectedOrder.shippingAddress.firstName} {selectedOrder.shippingAddress.lastName}
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      {selectedOrder.shippingAddress.address}, {selectedOrder.shippingAddress.city}, {selectedOrder.shippingAddress.state} {selectedOrder.shippingAddress.zipCode}
-                    </div>
-                  </div>
-
-                  <div className="space-y-3">
-                    <div className="font-medium">Items</div>
-                    <div className="divide-y divide-border rounded-md border">
-                      {selectedOrder.items.map((item) => (
-                        <div key={item._id} className="flex items-center gap-4 p-3">
-                          {item.productId?.images?.[0] ? (
-                            <img src={item.productId.images[0]} alt={item.productId.title} className="w-12 h-12 rounded object-cover" />
-                          ) : (
-                            <div className="w-12 h-12 rounded bg-muted" />
-                          )}
-                          <div className="flex-1 min-w-0">
-                            <div className="truncate font-medium">{item.productId.title}</div>
-                            <div className="text-sm text-muted-foreground">Qty: {item.quantity}</div>
-                          </div>
-                          <div className="text-right">
-                            <div className="text-sm text-muted-foreground">{formatCurrency(item.price)}</div>
-                            <div className="font-medium">{formatCurrency(item.subtotal)}</div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col items-end gap-1">
-                    <div className="text-sm text-muted-foreground">Subtotal: {formatCurrency(selectedOrder.subtotal)}</div>
-                    {selectedOrder.shippingFee > 0 && (
-                      <div className="text-sm text-muted-foreground">Shipping: {formatCurrency(selectedOrder.shippingFee)}</div>
-                    )}
-                    {selectedOrder.taxAmount > 0 && (
-                      <div className="text-sm text-muted-foreground">Tax: {formatCurrency(selectedOrder.taxAmount)}</div>
-                    )}
-                    {selectedOrder.discountAmount > 0 && (
-                      <div className="text-sm text-muted-foreground">Discount: -{formatCurrency(selectedOrder.discountAmount)}</div>
-                    )}
-                    <div className="font-semibold">Total: {formatCurrency(selectedOrder.totalAmount)}</div>
-                  </div>
-
-                  {selectedOrder.notes && (
-                    <div className="space-y-1">
-                      <div className="text-sm text-muted-foreground">Notes</div>
-                      <div className="text-sm whitespace-pre-wrap">{selectedOrder.notes}</div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </DialogContent>
-          </Dialog>
         </div>
       </div>
     </>

@@ -21,10 +21,6 @@ const userSchema = new mongoose.Schema(
         zipCode: { type: String, required: true },
       }
     ],
-    recentSearches: {
-      type: [String],
-      default: [],
-    },
     // Forgot password fields
     resetPasswordOTP: { type: String },
     resetPasswordOTPExpires: { type: Date },

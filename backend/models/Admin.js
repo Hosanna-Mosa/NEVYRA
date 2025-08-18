@@ -7,9 +7,6 @@ const adminSchema = new mongoose.Schema(
     email: { type: String, required: true, unique: true, match: /.+\@.+\..+/ },
     phone: { type: String, unique: true, sparse: true },
     password: { type: String, required: true },
-    // Forgot password fields for admin
-    resetPasswordOTP: { type: String },
-    resetPasswordOTPExpires: { type: Date },
   },
   { timestamps: true }
 );
