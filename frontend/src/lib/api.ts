@@ -56,6 +56,16 @@ export interface Product {
   inStock: boolean;
   rating: number;
   reviews: number;
+  reviewsList?: Array<{
+    _id?: string;
+    userId: string;
+    userName?: string;
+    rating: number;
+    title?: string;
+    comment?: string;
+    createdAt?: string;
+    updatedAt?: string;
+  }>;
   stockQuantity: number;
   soldCount: number;
   attributes: Record<string, any>;
@@ -362,6 +372,44 @@ class ApiService {
 
   async getProduct(id: string): Promise<ProductResponse> {
     return this.request<ProductResponse>(`/products/${id}`);
+  }
+
+  async getTopProductsByCategory(category: string, limit: number = 6, excludeId?: string): Promise<ProductsResponse> {
+    const params = new URLSearchParams();
+    params.append('category', category);
+    params.append('limit', limit.toString());
+    if (excludeId) params.append('excludeId', excludeId);
+    return this.request<ProductsResponse>(`/products/top?${params.toString()}`);
+  }
+
+  async getProductReviews(id: string): Promise<{ success: boolean; message: string; data: Product['reviewsList'] }>{
+    return this.request<{ success: boolean; message: string; data: Product['reviewsList'] }>(`/products/${id}/reviews`);
+  }
+
+  async addOrUpdateReview(id: string, review: { rating: number; title?: string; comment?: string }): Promise<ProductResponse> {
+    return this.request<ProductResponse>(`/products/${id}/reviews`, {
+      method: 'POST',
+      body: JSON.stringify(review),
+    });
+  }
+
+  async deleteMyReview(id: string): Promise<ProductResponse> {
+    return this.request<ProductResponse>(`/products/${id}/reviews`, {
+      method: 'DELETE',
+    });
+  }
+
+  async updateReviewById(productId: string, reviewId: string, review: { rating?: number; title?: string; comment?: string }): Promise<ProductResponse> {
+    return this.request<ProductResponse>(`/products/${productId}/reviews/${reviewId}`, {
+      method: 'PUT',
+      body: JSON.stringify(review),
+    });
+  }
+
+  async deleteReviewById(productId: string, reviewId: string): Promise<ProductResponse> {
+    return this.request<ProductResponse>(`/products/${productId}/reviews/${reviewId}`, {
+      method: 'DELETE',
+    });
   }
 
   async createProduct(productData: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>): Promise<ProductResponse> {
