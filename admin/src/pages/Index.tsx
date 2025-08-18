@@ -64,6 +64,19 @@ const Index = () => {
       onClick: () => navigate("/products"),
     },
     {
+      title: "Reviews",
+      description: "Customer feedback management",
+      icon: Star,
+      gradient: "bg-gradient-to-br from-yellow-500/20 to-orange-500/20",
+      size: "medium" as const,
+      stats: [
+        { label: "Avg Rating", value: "4.8★" },
+        { label: "New Reviews", value: "-" }
+      ],
+      delay: 250,
+      onClick: () => navigate("/reviews"),
+    },
+    {
       title: "Customers",
       description: "Customer relationship management",
       icon: Users,

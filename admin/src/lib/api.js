@@ -123,6 +123,24 @@ export const adminAPI = {
       body: JSON.stringify(updateData),
     });
   },
+
+  // ==================== REVIEWS (Admin moderation) ====================
+  getProductReviews: async (productId) => {
+    return apiRequest(`/products/${productId}/reviews`);
+  },
+
+  updateReviewById: async (productId, reviewId, update) => {
+    return apiRequest(`/products/${productId}/reviews/${reviewId}`, {
+      method: 'PUT',
+      body: JSON.stringify(update),
+    });
+  },
+
+  deleteReviewById: async (productId, reviewId) => {
+    return apiRequest(`/products/${productId}/reviews/${reviewId}`, {
+      method: 'DELETE',
+    });
+  },
 };
 
 export default {

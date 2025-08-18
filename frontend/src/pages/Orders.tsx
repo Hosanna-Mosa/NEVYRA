@@ -11,7 +11,6 @@ import {
   Eye, 
   Download,
   Star,
-  Truck,
   ArrowLeft,
   Search,
   Filter,
@@ -24,6 +23,16 @@ import {
 } from "lucide-react";
 import { apiService, Order } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuCheckboxItem,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
 
 const Orders = () => {
   const navigate = useNavigate();
@@ -152,16 +161,7 @@ const Orders = () => {
     });
   };
 
-  const getEstimatedDelivery = (order: Order) => {
-    if (order.estimatedDelivery) {
-      const date = new Date(order.estimatedDelivery);
-      return date.toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric'
-      });
-    }
-    return "TBD";
-  };
+  // Removed estimated delivery display for a cleaner mobile UI
 
   if (loading) {
     return (
@@ -195,7 +195,7 @@ const Orders = () => {
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-foreground">
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground">
               My Orders
             </h1>
             <p className="text-muted-foreground">
@@ -219,93 +219,67 @@ const Orders = () => {
             </div>
           </div>
 
-          {/* Filter Button */}
+          {/* Filter Dropdown */}
           <div className="lg:col-span-2">
-            <Button
-              variant="outline"
-              onClick={() => document.getElementById('filters')?.classList.toggle('hidden')}
-              className="w-full lg:w-auto"
-            >
-              <Filter className="h-4 w-4 mr-2" />
-              Filters
-              {(statusFilters.length > 0 || timeFilters.length > 0) && (
-                <Badge variant="secondary" className="ml-2">
-                  {statusFilters.length + timeFilters.length}
-                </Badge>
-              )}
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="w-full lg:w-auto text-sm">
+                  <Filter className="h-4 w-4 mr-2" />
+                  Filter
+                  {(statusFilters.length > 0 || timeFilters.length > 0) && (
+                    <Badge variant="secondary" className="ml-2">
+                      {statusFilters.length + timeFilters.length}
+                    </Badge>
+                  )}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-72">
+                <DropdownMenuGroup>
+                  <DropdownMenuLabel>Order Status</DropdownMenuLabel>
+                  {["Pending", "Confirmed", "Processing", "Shipped", "Out for Delivery", "Delivered", "Cancelled", "Returned"].map((status) => (
+                    <DropdownMenuCheckboxItem
+                      key={status}
+                      checked={statusFilters.includes(status)}
+                      onCheckedChange={(checked) => handleStatusFilter(status, checked as boolean)}
+                    >
+                      {status}
+                    </DropdownMenuCheckboxItem>
+                  ))}
+                </DropdownMenuGroup>
+                <DropdownMenuSeparator />
+                <DropdownMenuGroup>
+                  <DropdownMenuLabel>Time Period</DropdownMenuLabel>
+                  {[
+                    { key: "last7days", label: "Last 7 days" },
+                    { key: "last30days", label: "Last 30 days" },
+                    { key: "last3months", label: "Last 3 months" },
+                    { key: "last6months", label: "Last 6 months" },
+                  ].map((time) => (
+                    <DropdownMenuCheckboxItem
+                      key={time.key}
+                      checked={timeFilters.includes(time.key)}
+                      onCheckedChange={(checked) => handleTimeFilter(time.key, checked as boolean)}
+                    >
+                      {time.label}
+                    </DropdownMenuCheckboxItem>
+                  ))}
+                </DropdownMenuGroup>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onSelect={(e) => { e.preventDefault(); clearFilters(); }}>
+                  <X className="h-4 w-4 mr-2" /> Clear All Filters
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
 
-        {/* Filters Panel */}
-        <div id="filters" className="hidden lg:block mb-6">
-          <Card>
-            <CardContent className="p-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                {/* Status Filters */}
-                <div>
-                  <h3 className="font-semibold text-foreground mb-3">Order Status</h3>
-                  <div className="space-y-2">
-                    {["Pending", "Confirmed", "Processing", "Shipped", "Out for Delivery", "Delivered", "Cancelled", "Returned"].map((status) => (
-                      <div key={status} className="flex items-center space-x-2">
-                        <Checkbox
-                          id={status}
-                          checked={statusFilters.includes(status)}
-                          onCheckedChange={(checked) => handleStatusFilter(status, checked as boolean)}
-                        />
-                        <label htmlFor={status} className="text-sm text-foreground cursor-pointer">
-                          {status}
-                        </label>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Time Filters */}
-                <div>
-                  <h3 className="font-semibold text-foreground mb-3">Time Period</h3>
-                  <div className="space-y-2">
-                    {[
-                      { key: "last7days", label: "Last 7 days" },
-                      { key: "last30days", label: "Last 30 days" },
-                      { key: "last3months", label: "Last 3 months" },
-                      { key: "last6months", label: "Last 6 months" }
-                    ].map((time) => (
-                      <div key={time.key} className="flex items-center space-x-2">
-                        <Checkbox
-                          id={time.key}
-                          checked={timeFilters.includes(time.key)}
-                          onCheckedChange={(checked) => handleTimeFilter(time.key, checked as boolean)}
-                        />
-                        <label htmlFor={time.key} className="text-sm text-foreground cursor-pointer">
-                          {time.label}
-                        </label>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Clear Filters */}
-                <div className="lg:col-span-2 flex items-end">
-                  <Button
-                    variant="outline"
-                    onClick={clearFilters}
-                    className="w-full"
-                  >
-                    <X className="h-4 w-4 mr-2" />
-                    Clear All Filters
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        {/* Filters Panel removed in favor of dropdown */}
 
         {/* Orders List */}
         {filteredOrders.length === 0 ? (
           <Card>
-            <CardContent className="p-12 text-center">
-              <Package className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+            <CardContent className="p-8 md:p-12 text-center">
+              <Package className="h-12 w-12 md:h-16 md:w-16 text-muted-foreground mx-auto mb-4" />
               <h3 className="text-lg font-medium text-foreground mb-2">
                 {orders.length === 0 ? "No orders yet" : "No orders match your filters"}
               </h3>
@@ -316,7 +290,7 @@ const Orders = () => {
                 }
               </p>
               {orders.length === 0 && (
-                <Button onClick={() => navigate('/')}>
+                <Button size="sm" onClick={() => navigate('/')}> 
                   Start Shopping
                 </Button>
               )}
@@ -326,13 +300,13 @@ const Orders = () => {
           <div className="space-y-4">
             {filteredOrders.map((order) => (
               <Card key={order._id} className="hover:shadow-md transition-shadow">
-                <CardContent className="p-6">
+                <CardContent className="p-4 md:p-6">
                   {/* Order Header */}
                   <div className="flex flex-col md:flex-row md:items-center justify-between mb-4 gap-4">
                     <div className="flex items-center gap-4">
                       <div className="flex items-center gap-2">
                         <Package className="h-5 w-5 text-muted-foreground" />
-                        <span className="font-mono font-medium text-foreground">
+                        <span className="font-mono font-medium text-foreground text-sm md:text-base">
                           {order.orderNumber}
                         </span>
                       </div>
@@ -344,10 +318,6 @@ const Orders = () => {
                       <div className="flex items-center gap-1">
                         <Calendar className="h-4 w-4" />
                         <span>Ordered: {formatDate(order.createdAt)}</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Truck className="h-4 w-4" />
-                        <span>Est. Delivery: {getEstimatedDelivery(order)}</span>
                       </div>
                     </div>
                   </div>
@@ -392,11 +362,12 @@ const Orders = () => {
                     <div className="flex items-center gap-3">
                       <div className="text-right">
                         <div className="text-sm text-muted-foreground">Total Amount</div>
-                        <div className="text-lg font-bold text-foreground">
+                        <div className="text-base md:text-lg font-bold text-foreground">
                           ₹{order.totalAmount.toLocaleString()}
                         </div>
                       </div>
                       <Button
+                        size="sm"
                         onClick={() => navigate(`/order/${order._id}`)}
                         className="bg-primary hover:bg-primary-hover text-primary-foreground"
                       >
