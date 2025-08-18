@@ -81,6 +81,12 @@ export interface ProductResponse {
   data: Product | null;
 }
 
+export interface SectionsResponse {
+  success: boolean;
+  message: string;
+  data: { byCategory: Record<string, Product[]>; topPicks: Product[] };
+}
+
 export interface CartItem {
   _id: string;
   userId: string;
@@ -360,6 +366,39 @@ class ApiService {
     return this.request<ProductsResponse>(`/products?${params.toString()}`);
   }
 
+  async searchProducts(query: string, page: number = 1, limit: number = 12): Promise<ProductsResponse> {
+    const params = new URLSearchParams();
+    if (query) params.append('search', query);
+    if (page) params.append('page', page.toString());
+    if (limit) params.append('limit', limit.toString());
+    return this.request<ProductsResponse>(`/products?${params.toString()}`);
+  }
+
+  async suggest(query: string, limit: number = 8): Promise<{ success: boolean; message: string; data: { suggestions: string[]; products: Product[] } }> {
+    const params = new URLSearchParams();
+    if (query) params.append('q', query);
+    if (limit) params.append('limit', limit.toString());
+    return this.request<{ success: boolean; message: string; data: { suggestions: string[]; products: Product[] } }>(`/products/suggest?${params.toString()}`);
+  }
+
+  async getSections(
+    categories: string[],
+    limit: number = 10,
+    topLimit: number = 12
+  ): Promise<SectionsResponse> {
+    const params = new URLSearchParams();
+    if (categories?.length) params.append('categories', categories.join(','));
+    if (limit) params.append('limit', limit.toString());
+    if (topLimit) params.append('topLimit', topLimit.toString());
+    return this.request<SectionsResponse>(`/products/sections?${params.toString()}`);
+  }
+
+  async getTopPicks(limit: number = 12): Promise<{ success: boolean; message: string; data: Product[] }> {
+    const params = new URLSearchParams();
+    if (limit) params.append('limit', limit.toString());
+    return this.request<{ success: boolean; message: string; data: Product[] }>(`/products/top-picks?${params.toString()}`);
+  }
+
   async getProduct(id: string): Promise<ProductResponse> {
     return this.request<ProductResponse>(`/products/${id}`);
   }
@@ -469,6 +508,22 @@ class ApiService {
     } catch (error) {
       return { success: false, message: 'Cannot connect to API server' };
     }
+  }
+
+  // Search utilities
+  async getRecentSearches(): Promise<{ success: boolean; message: string; data: string[] }> {
+    return this.request<{ success: boolean; message: string; data: string[] }>(`/users/recent-searches`);
+  }
+
+  async addRecentSearch(term: string): Promise<{ success: boolean; message: string; data: string[] }> {
+    return this.request<{ success: boolean; message: string; data: string[] }>(`/users/recent-searches`, {
+      method: 'POST',
+      body: JSON.stringify({ term }),
+    });
+  }
+
+  async getPopularSearches(): Promise<{ success: boolean; message: string; data: string[] }> {
+    return this.request<{ success: boolean; message: string; data: string[] }>(`/users/popular-searches`);
   }
 }
 

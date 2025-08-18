@@ -1,5 +1,6 @@
 const { Product } = require("../models");
 const { validateAttributes } = require("../utils/validateAttributes");
+const { categorySchemas } = require("../categorySchemas");
 
 function mapProductId(product) {
   if (!product) return product;
@@ -22,7 +23,15 @@ exports.list = async (req, res, next) => {
     const { page = 1, limit = 10, category, search } = req.query;
     const filter = {};
     if (category) filter.category = category;
-    if (search) filter.title = { $regex: search, $options: "i" };
+    if (search) {
+      const escaped = String(search).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const regex = new RegExp(escaped, "i");
+      filter.$or = [
+        { title: { $regex: regex } },
+        { category: { $regex: regex } },
+        { subCategory: { $regex: regex } },
+      ];
+    }
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const [products, count] = await Promise.all([
       Product.find(filter)
@@ -194,6 +203,110 @@ exports.getAll = async (req, res, next) => {
       success: true,
       message: "All products fetched",
       data: mappedProducts,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// Fetch multiple category sections at once plus top picks
+exports.sections = async (req, res, next) => {
+  try {
+    const { categories, limit = 10, topLimit = 12 } = req.query;
+
+    const defaultCategories = Object.keys(categorySchemas);
+    const categoryList = categories
+      ? categories.split(",").filter((c) => !!c)
+      : defaultCategories;
+
+    const limitNum = parseInt(limit);
+    const topLimitNum = parseInt(topLimit);
+
+    const categoryQueries = categoryList.map((cat) =>
+      Product.find({ category: cat })
+        .limit(limitNum)
+        .select(
+          "title price category subCategory images inStock rating reviews stockQuantity soldCount attributes"
+        )
+    );
+
+    const topPicksQuery = topLimitNum > 0
+      ? Product.find({})
+          .sort({ rating: -1, soldCount: -1 })
+          .limit(topLimitNum)
+          .select(
+            "title price category subCategory images inStock rating reviews stockQuantity soldCount attributes"
+          )
+      : Promise.resolve([]);
+
+    const [categoryResults, topPicksRaw] = await Promise.all([
+      Promise.all(categoryQueries),
+      topPicksQuery,
+    ]);
+
+    const byCategory = {};
+    categoryList.forEach((cat, idx) => {
+      byCategory[cat] = categoryResults[idx].map(mapProductId);
+    });
+
+    const topPicks = topPicksRaw.map(mapProductId);
+
+    res.json({
+      success: true,
+      message: "Sections fetched",
+      data: { byCategory, topPicks },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// Fetch only top picks
+exports.topPicks = async (req, res, next) => {
+  try {
+    const { limit = 12 } = req.query;
+    const topLimitNum = parseInt(limit);
+    const items = await Product.find({})
+      .sort({ rating: -1, soldCount: -1 })
+      .limit(topLimitNum)
+      .select(
+        "title price category subCategory images inStock rating reviews stockQuantity soldCount attributes"
+      );
+    const data = items.map(mapProductId);
+    res.json({ success: true, message: "Top picks fetched", data });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// Lightweight suggestions for autocomplete
+exports.suggest = async (req, res, next) => {
+  try {
+    const { q = "", limit = 8 } = req.query;
+    const query = String(q).trim();
+    if (!query) {
+      return res.json({ success: true, message: "No query provided", data: { suggestions: [], products: [] } });
+    }
+    const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const regex = new RegExp(escaped, "i");
+    const products = await Product.find({
+      $or: [
+        { title: { $regex: regex } },
+        { category: { $regex: regex } },
+        { subCategory: { $regex: regex } },
+      ],
+    })
+      .limit(parseInt(limit))
+      .select("title price category subCategory images rating reviews");
+
+    const uniqueTitles = Array.from(new Set(products.map((p) => p.title)));
+    const suggestions = uniqueTitles.slice(0, parseInt(limit));
+
+    const mapped = products.map(mapProductId);
+    res.json({
+      success: true,
+      message: "Suggestions fetched",
+      data: { suggestions, products: mapped },
     });
   } catch (err) {
     next(err);

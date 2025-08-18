@@ -54,4 +54,9 @@ const productSchema = new mongoose.Schema(
   }
 );
 
+// Helpful indexes for common queries
+productSchema.index({ category: 1, soldCount: -1 });
+productSchema.index({ category: 1, rating: -1 });
+productSchema.index({ title: "text" });
+
 module.exports = mongoose.model("Product", productSchema);

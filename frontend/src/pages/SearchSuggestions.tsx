@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { apiService, type Product } from "@/lib/api";
 
 // Mock search suggestions data
 const popularSearches = [
@@ -36,6 +37,11 @@ const categorySuggestions = [
 const SearchSuggestions = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [recent, setRecent] = useState<string[]>([]);
+  const [showAllRecent, setShowAllRecent] = useState(false);
+  const [popular, setPopular] = useState<string[]>([]);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const isMobile = useIsMobile();
@@ -48,21 +54,58 @@ const SearchSuggestions = () => {
     }
   }, [searchParams]);
 
-  // Mock search suggestions based on query
+  // Load recent and popular
   useEffect(() => {
-    if (searchQuery.trim()) {
-      const filtered = popularSearches.filter(item =>
-        item.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-      setSuggestions(filtered);
-    } else {
+    (async () => {
+      try {
+        const [r, p] = await Promise.all([
+          apiService.getRecentSearches().catch(() => ({ data: [] } as any)),
+          apiService.getPopularSearches().catch(() => ({ data: [] } as any)),
+        ]);
+        setRecent((r as any)?.data || []);
+        setPopular((p as any)?.data || []);
+      } catch (_) {}
+    })();
+  }, []);
+
+  // Debounced live suggestions based on query
+  useEffect(() => {
+    const q = searchQuery.trim();
+    if (!q) {
       setSuggestions([]);
+      setProducts([]);
+      return;
     }
+    const controller = new AbortController();
+    const t = setTimeout(async () => {
+      try {
+        setLoading(true);
+        const res = await apiService.suggest(q);
+        if (!controller.signal.aborted) {
+          setSuggestions(res.data.suggestions || []);
+          setProducts(res.data.products || []);
+        }
+      } catch (e) {
+        if (!controller.signal.aborted) {
+          setSuggestions([]);
+          setProducts([]);
+        }
+      } finally {
+        if (!controller.signal.aborted) setLoading(false);
+      }
+    }, 200);
+    return () => {
+      controller.abort();
+      clearTimeout(t);
+    };
   }, [searchQuery]);
 
   const handleSearch = (query: string) => {
     if (query.trim()) {
-      navigate(`/search?q=${encodeURIComponent(query.trim())}`);
+      const q = query.trim();
+      // fire-and-forget: record recent search if logged in
+      apiService.addRecentSearch(q).catch(() => {});
+      navigate(`/search?q=${encodeURIComponent(q)}`);
     }
   };
 
@@ -71,8 +114,7 @@ const SearchSuggestions = () => {
   };
 
   const clearRecentSearches = () => {
-    // In a real app, this would clear from localStorage
-    console.log("Clear recent searches");
+    setRecent([]);
   };
 
   return (
@@ -115,13 +157,14 @@ const SearchSuggestions = () => {
       {/* Content */}
       <div className="p-4 space-y-6">
         {/* Search Suggestions */}
-        {searchQuery && suggestions.length > 0 && (
+        {searchQuery && (loading || suggestions.length > 0) && (
           <div>
             <h3 className="text-sm font-medium text-muted-foreground mb-3">
               Search Suggestions
             </h3>
             <div className="space-y-2">
-              {suggestions.map((suggestion, index) => (
+              {loading && <div className="text-sm text-muted-foreground px-3">Searching…</div>}
+              {!loading && suggestions.map((suggestion, index) => (
                 <button
                   key={index}
                   onClick={() => handleSearch(suggestion)}
@@ -135,8 +178,35 @@ const SearchSuggestions = () => {
           </div>
         )}
 
+        {/* Product previews */}
+        {searchQuery && !loading && products.length > 0 && (
+          <div>
+            <h3 className="text-sm font-medium text-muted-foreground mb-3">Top products</h3>
+            <div className="divide-y divide-border rounded-md border border-border overflow-hidden">
+              {products.map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => navigate(`/product/${p.id}`)}
+                  className="w-full flex items-center p-3 hover:bg-muted"
+                >
+                  <img
+                    src={p.images?.[0] || "/placeholder.svg"}
+                    alt={p.title}
+                    className="w-10 h-10 object-cover rounded mr-3"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm truncate text-foreground">{p.title}</div>
+                    <div className="text-xs text-muted-foreground truncate">{p.category} {p.subCategory ? `• ${p.subCategory}` : ""}</div>
+                  </div>
+                  <div className="text-sm font-medium ml-3">${p.price}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Recent Searches */}
-        {!searchQuery && recentSearches.length > 0 && (
+        {!searchQuery && recent.length > 0 && (
           <div>
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-medium text-muted-foreground flex items-center">
@@ -146,15 +216,14 @@ const SearchSuggestions = () => {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={clearRecentSearches}
+                onClick={() => setShowAllRecent((v) => !v)}
                 className="text-xs text-muted-foreground hover:text-foreground"
               >
-                <X className="h-3 w-3 mr-1" />
-                Clear
+                {showAllRecent ? "Show less" : `Show ${Math.max(0, recent.length - 5)} more`}
               </Button>
             </div>
             <div className="space-y-2">
-              {recentSearches.map((search, index) => (
+              {(showAllRecent ? recent : recent.slice(0, 5)).map((search, index) => (
                 <button
                   key={index}
                   onClick={() => handleSearch(search)}
@@ -176,7 +245,7 @@ const SearchSuggestions = () => {
               Popular Searches
             </h3>
             <div className="flex flex-wrap gap-2">
-              {popularSearches.map((search, index) => (
+              {(popular.length ? popular : popularSearches).map((search, index) => (
                 <button
                   key={index}
                   onClick={() => handleSearch(search)}

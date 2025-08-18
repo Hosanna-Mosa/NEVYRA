@@ -123,6 +123,31 @@ export const adminAPI = {
       body: JSON.stringify(updateData),
     });
   },
+
+  // ==================== ADMIN PASSWORD RESET FLOW ====================
+  // Step 1: Request OTP to email
+  forgotPassword: async ({ email }) => {
+    return apiRequest('/admins/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    });
+  },
+
+  // Step 2: Verify OTP
+  verifyOTP: async ({ email, otp }) => {
+    return apiRequest('/admins/verify-otp', {
+      method: 'POST',
+      body: JSON.stringify({ email, otp }),
+    });
+  },
+
+  // Step 3: Reset password
+  resetPassword: async ({ email, otp, newPassword }) => {
+    return apiRequest('/admins/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({ email, otp, newPassword }),
+    });
+  },
 };
 
 export default {
