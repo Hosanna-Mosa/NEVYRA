@@ -5,83 +5,56 @@ import { Input } from "@/components/ui/input";
 import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { useIsMobile } from "@/hooks/use-mobile";
-
-import laptopProduct from "@/assets/laptop-product.jpg";
-import phoneProduct from "@/assets/phone-product.jpg";
-import shoesProduct from "@/assets/shoes-product.jpg";
-import dressProduct from "@/assets/dress-product.jpg";
-
-// Mock search results data
-const mockProducts = [
-  {
-    id: 1,
-    name: "Gaming Laptop",
-    price: 1299.99,
-    image: laptopProduct,
-    rating: 4.5,
-    reviews: 128,
-    category: "Electronics"
-  },
-  {
-    id: 2,
-    name: "Wireless Headphones",
-    price: 89.99,
-    image: phoneProduct,
-    rating: 4.2,
-    reviews: 89,
-    category: "Electronics"
-  },
-  {
-    id: 3,
-    name: "Running Shoes",
-    price: 129.99,
-    image: shoesProduct,
-    rating: 4.7,
-    reviews: 256,
-    category: "Sports"
-  },
-  {
-    id: 4,
-    name: "Summer Dress",
-    price: 59.99,
-    image: dressProduct,
-    rating: 4.3,
-    reviews: 67,
-    category: "Fashion"
-  }
-];
+import { apiService, type Product } from "@/lib/api";
 
 const SearchResults = () => {
   const [searchQuery, setSearchQuery] = useState("");
-  const [results, setResults] = useState(mockProducts);
+  const [results, setResults] = useState<Product[]>([]);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [loading, setLoading] = useState(false);
+  const [total, setTotal] = useState(0);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const isMobile = useIsMobile();
 
-  // Get search query from URL params
+  // Fetch results from API when query changes
   useEffect(() => {
-    const query = searchParams.get("q");
-    if (query) {
-      setSearchQuery(query);
-      // Filter results based on query
-      const filtered = mockProducts.filter(product =>
-        product.name.toLowerCase().includes(query.toLowerCase()) ||
-        product.category.toLowerCase().includes(query.toLowerCase())
-      );
-      setResults(filtered);
-    }
+    const query = searchParams.get("q") || "";
+    setSearchQuery(query);
+    const fetchResults = async () => {
+      const q = query.trim();
+      if (!q) {
+        setResults([]);
+        setTotal(0);
+        return;
+      }
+      setLoading(true);
+      try {
+        const res = await apiService.searchProducts(q, 1, 24);
+        setResults(res.data || []);
+        setTotal(res.pagination?.total || (res.data?.length ?? 0));
+      } catch (e) {
+        setResults([]);
+        setTotal(0);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchResults();
   }, [searchParams]);
 
   const handleSearch = (query: string) => {
-    navigate(`/search?q=${encodeURIComponent(query)}`);
+    const q = query.trim();
+    if (!q) return;
+    apiService.addRecentSearch(q).catch(() => {});
+    navigate(`/search?q=${encodeURIComponent(q)}`);
   };
 
   const handleBack = () => {
     navigate(-1);
   };
 
-  const handleProductClick = (productId: number) => {
+  const handleProductClick = (productId: string) => {
     navigate(`/product/${productId}`);
   };
 
@@ -134,7 +107,7 @@ const SearchResults = () => {
               Search Results for "{searchQuery}"
             </h1>
             <p className="text-xs text-muted-foreground mt-1">
-              {results.length} results found
+              {total} results found
             </p>
           </div>
           
@@ -172,7 +145,12 @@ const SearchResults = () => {
 
       {/* Results */}
       <div className="p-3">
-        {results.length > 0 ? (
+        {loading ? (
+          <div className="text-center py-8 px-4">
+            <Search className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+            <h2 className="text-lg font-semibold mb-2 text-foreground">Searching…</h2>
+          </div>
+        ) : results.length > 0 ? (
           <div className={viewMode === "grid" ? "grid grid-cols-2 gap-3" : "space-y-3"}>
             {results.map((product) => (
               <Card
@@ -184,15 +162,15 @@ const SearchResults = () => {
                   <div className={viewMode === "grid" ? "space-y-2" : "flex space-x-3"}>
                     <div className={viewMode === "grid" ? "aspect-square" : "w-20 h-20 flex-shrink-0"}>
                       <img
-                        src={product.image}
-                        alt={product.name}
+                        src={product.images?.[0] || "/placeholder.svg"}
+                        alt={product.title}
                         className="w-full h-full object-cover rounded-md"
                       />
                     </div>
                     
                     <div className={viewMode === "grid" ? "space-y-1" : "flex-1 space-y-1"}>
                       <h3 className="font-medium text-sm line-clamp-2 text-foreground leading-tight">
-                        {product.name}
+                        {product.title}
                       </h3>
                       
                       <div className="flex items-center space-x-1">
@@ -201,7 +179,7 @@ const SearchResults = () => {
                             <Star
                               key={i}
                               className={`h-3 w-3 ${
-                                i < Math.floor(product.rating)
+                                i < Math.floor(product.rating || 0)
                                   ? "fill-yellow-400 text-yellow-400"
                                   : "text-gray-300"
                               }`}
@@ -209,7 +187,7 @@ const SearchResults = () => {
                           ))}
                         </div>
                         <span className="text-xs text-muted-foreground ml-1">
-                          ({product.reviews})
+                          ({product.reviews || 0})
                         </span>
                       </div>
                       

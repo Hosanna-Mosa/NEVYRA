@@ -6,5 +6,9 @@ const adminMiddleware = require("../middlewares/adminMiddleware");
 
 router.post("/login", adminController.login);
 router.put("/password", authMiddleware, adminMiddleware, adminController.updatePassword);
+// Admin password reset flow
+router.post("/forgot-password", adminController.forgotPassword);
+router.post("/verify-otp", adminController.verifyOTP);
+router.post("/reset-password", adminController.resetPassword);
 
 module.exports = router; 

@@ -18,6 +18,7 @@ import {
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useAuth } from "@/hooks/useAuth";
 import { useCart } from "@/hooks/useCart";
+import { apiService, type Product } from "@/lib/api";
 
 const categories = [
   {
@@ -121,6 +122,9 @@ const Navbar = () => {
   const [showSearchSuggestions, setShowSearchSuggestions] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [suggestedProducts, setSuggestedProducts] = useState<Product[]>([]);
+  const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
 
   const toggleCategory = (categoryName: string) => {
     setExpandedCategory(expandedCategory === categoryName ? null : categoryName);
@@ -130,7 +134,52 @@ const Navbar = () => {
     if (isMobile) {
       navigate("/search-suggestions");
     }
+    setShowSearchSuggestions(true);
   };
+
+  // Close suggestions on outside click
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
+        setShowSearchSuggestions(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Debounced fetch suggestions
+  useEffect(() => {
+    if (!showSearchSuggestions) return;
+    const q = searchQuery.trim();
+    if (q.length < 2) {
+      setSuggestions([]);
+      setSuggestedProducts([]);
+      return;
+    }
+    const controller = new AbortController();
+    const t = setTimeout(async () => {
+      try {
+        setIsLoadingSuggestions(true);
+        const res = await apiService.suggest(q);
+        if (!controller.signal.aborted) {
+          setSuggestions(res.data.suggestions || []);
+          setSuggestedProducts(res.data.products || []);
+        }
+      } catch (e) {
+        if (!controller.signal.aborted) {
+          setSuggestions([]);
+          setSuggestedProducts([]);
+        }
+      } finally {
+        if (!controller.signal.aborted) setIsLoadingSuggestions(false);
+      }
+    }, 200);
+    return () => {
+      controller.abort();
+      clearTimeout(t);
+    };
+  }, [searchQuery, showSearchSuggestions]);
 
   return (
     <div className="bg-cyan-100 font-roboto">
@@ -158,17 +207,21 @@ const Navbar = () => {
           </div>
 
           {/* Search Bar */}
-          <div className="flex-1 max-w-2xl mx-4 hidden md:block">
+          <div className="flex-1 max-w-2xl mx-4 hidden md:block" ref={searchRef}>
             <div className="relative">
               <Input
                 type="text"
                 placeholder="Search for products, brands and more"
                 className="w-full pl-4 pr-12 py-2 bg-background text-foreground border-none rounded-sm"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onFocus={() => setShowSearchSuggestions(true)}
                 onKeyPress={(e) => {
                   if (e.key === "Enter") {
-                    const target = e.target as HTMLInputElement;
-                    if (target.value.trim()) {
-                      navigate(`/search?q=${encodeURIComponent(target.value.trim())}`);
+                    const value = searchQuery.trim();
+                    if (value) {
+                      setShowSearchSuggestions(false);
+                      navigate(`/search?q=${encodeURIComponent(value)}`);
                     }
                   }
                 }}
@@ -177,14 +230,81 @@ const Navbar = () => {
                 size="sm"
                 className="absolute right-0 top-0 h-full px-4 bg-warning hover:bg-warning/90 text-warning-foreground rounded-l-none rounded-r-sm"
                 onClick={() => {
-                  const input = document.querySelector('input[placeholder="Search for products, brands and more"]') as HTMLInputElement;
-                  if (input && input.value.trim()) {
-                    navigate(`/search?q=${encodeURIComponent(input.value.trim())}`);
+                  const value = searchQuery.trim();
+                  if (value) {
+                    setShowSearchSuggestions(false);
+                    apiService.addRecentSearch(value).catch(() => {});
+                    navigate(`/search?q=${encodeURIComponent(value)}`);
                   }
                 }}
               >
                 <Search className="h-4 w-4" />
               </Button>
+
+              {showSearchSuggestions && (
+                <div className="absolute z-50 mt-1 w-full bg-popover border border-border rounded-md shadow-md overflow-hidden">
+                  <div className="max-h-96 overflow-y-auto">
+                    {isLoadingSuggestions ? (
+                      <div className="p-3 text-sm text-muted-foreground">Searching…</div>
+                    ) : (
+                      <>
+                        {suggestions.length === 0 && suggestedProducts.length === 0 ? (
+                          <div className="p-3 text-sm text-muted-foreground">No suggestions</div>
+                        ) : (
+                          <>
+                            {suggestions.length > 0 && (
+                              <div className="p-2">
+                                <div className="px-2 py-1 text-xs uppercase text-muted-foreground">Suggestions</div>
+                                {suggestions.map((s, i) => (
+                                  <button
+                                    key={i}
+                                    className="w-full text-left px-2 py-2 hover:bg-accent rounded"
+                                    onClick={() => {
+                                      setShowSearchSuggestions(false);
+                                      navigate(`/search?q=${encodeURIComponent(s)}`);
+                                    }}
+                                  >
+                                    {s}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+
+                            {suggestedProducts.length > 0 && (
+                              <div className="border-t border-border p-2">
+                                <div className="px-2 py-1 text-xs uppercase text-muted-foreground">Top products</div>
+                                <div className="divide-y divide-border">
+                                  {suggestedProducts.map((p) => (
+                                    <button
+                                      key={p.id}
+                                      className="w-full flex items-center px-2 py-2 hover:bg-accent"
+                                      onClick={() => {
+                                        setShowSearchSuggestions(false);
+                                        navigate(`/product/${p.id}`);
+                                      }}
+                                    >
+                                      <img
+                                        src={p.images?.[0] || "/placeholder.svg"}
+                                        alt={p.title}
+                                        className="w-10 h-10 object-cover rounded mr-3"
+                                      />
+                                      <div className="flex-1 min-w-0">
+                                        <div className="text-sm truncate text-foreground">{p.title}</div>
+                                        <div className="text-xs text-muted-foreground truncate">{p.category} {p.subCategory ? `• ${p.subCategory}` : ""}</div>
+                                      </div>
+                                      <div className="text-sm font-medium ml-3">${p.price}</div>
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
